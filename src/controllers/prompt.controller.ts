@@ -5,6 +5,9 @@ import {
   FeedQueryParams,
   GetPromptParams,
   GetPromptBySlugParams,
+  CreateVersionInput,
+  VersionParams,
+  ReplaceTestCasesInput,
 } from '../validation/prompt.schema.js';
 import AppError from '../utils/appError.util.js';
 
@@ -457,3 +460,35 @@ export const getUserFavorites = catchAsync(
     });
   },
 );
+// Version history and test cases (owner-only; `protect` guarantees req.user)
+
+export const getVersions = catchAsync(async (req: Request, res: Response) => {
+  const { id } = req.params as GetPromptParams;
+  const data = await promptService.getPromptVersions(id, req.user!);
+  res.status(200).json({ status: 'success', data });
+});
+
+export const createVersion = catchAsync(async (req: Request, res: Response) => {
+  const { id } = req.params as GetPromptParams;
+  const data = await promptService.createPromptVersion(id, req.user!, req.body as CreateVersionInput);
+  res.status(201).json({ status: 'success', data });
+});
+
+export const restoreVersion = catchAsync(async (req: Request, res: Response) => {
+  const { id, versionNumber } = req.params as unknown as VersionParams;
+  const data = await promptService.restorePromptVersion(id, versionNumber, req.user!);
+  res.status(201).json({ status: 'success', data });
+});
+
+export const getTestCases = catchAsync(async (req: Request, res: Response) => {
+  const { id } = req.params as GetPromptParams;
+  const data = await promptService.getPromptTestCases(id, req.user!);
+  res.status(200).json({ status: 'success', data });
+});
+
+export const replaceTestCases = catchAsync(async (req: Request, res: Response) => {
+  const { id } = req.params as GetPromptParams;
+  const { testCases } = req.body as ReplaceTestCasesInput;
+  const data = await promptService.replacePromptTestCases(id, req.user!, testCases);
+  res.status(200).json({ status: 'success', data });
+});

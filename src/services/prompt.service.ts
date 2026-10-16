@@ -6,6 +6,11 @@ import { cloudinary } from '../utils/cloudinary.util.js';
 import logger from '../config/logger.config.js';
 import Comment from '../models/comment.model.js';
 import { literalRegex } from '../utils/regex.util.js';
+import { extractTemplateVariables } from '../utils/template.util.js';
+import { MAX_PROMPT_VERSIONS, MAX_TEST_CASES } from '../models/prompt.model.js';
+
+// Large owner-only arrays that list/detail queries never need to load.
+const OWNER_ONLY_EXCLUDED = { versions: 0, testCases: 0 } as const;
 
 /** The subset of the authenticated user that access checks need. */
 export type PromptRequester = { _id: unknown; role?: string } | undefined;
@@ -135,7 +140,7 @@ export const getFeed = async (query: FeedQueryParams) => {
 
   const skip = (page - 1) * limit;
 
-  let queryBuilder = Prompt.find(filter)
+  let queryBuilder = Prompt.find(filter, OWNER_ONLY_EXCLUDED)
     .populate({
       path: 'user',
       select: PUBLIC_AUTHOR_FIELDS,
@@ -208,7 +213,7 @@ const getVisiblePrompt = async (
   const prompt = await Prompt.findOneAndUpdate(
     { ...match, ...buildPromptAccessFilter(requester) },
     { $inc: { views: 1 } },
-    { new: true },
+    { new: true, projection: OWNER_ONLY_EXCLUDED },
   ).populate({
     path: 'user',
     select: PUBLIC_AUTHOR_FIELDS,
@@ -297,11 +302,18 @@ export const updatePrompt = async (
     }
   }
 
+  const textChanged =
+    typeof promptData.promptText === 'string' && promptData.promptText !== prompt.promptText;
+
   Object.keys(promptData).forEach((key) => {
     if (promptData[key] !== undefined) {
       (prompt as any)[key] = promptData[key];
     }
   });
+
+  // The document was loaded with its full version history, so appending
+  // here and saving is safe.
+  if (textChanged) appendVersion(prompt, prompt.promptText, userId, 'Edited');
 
   await prompt.save();
 
@@ -437,7 +449,7 @@ export const getUserPrompts = async (
 
   const skip = (page - 1) * limit;
 
-  let queryBuilder = Prompt.find(filter)
+  let queryBuilder = Prompt.find(filter, OWNER_ONLY_EXCLUDED)
     .populate({
       path: 'user',
       select: PUBLIC_AUTHOR_FIELDS,
@@ -518,7 +530,7 @@ export const getUserFavorites = async (
 
   const skip = (page - 1) * limit;
 
-  let queryBuilder = Prompt.find(filter)
+  let queryBuilder = Prompt.find(filter, OWNER_ONLY_EXCLUDED)
     .populate({
       path: 'user',
       select: PUBLIC_AUTHOR_FIELDS,
@@ -588,3 +600,132 @@ export const getPublicSitemapPrompts = async (limit = 5000) =>
     .sort({ updatedAt: -1 })
     .limit(limit)
     .lean();
+
+// ---------------------------------------------------------------------------
+// Version history and test cases (owner-only)
+// ---------------------------------------------------------------------------
+
+/** Append a version to a fully-loaded prompt document (caller saves). */
+const appendVersion = (
+  prompt: any,
+  promptText: string,
+  userId: unknown,
+  changeSummary: string,
+) => {
+  const versions = prompt.versions ?? [];
+  const nextNumber = (versions.at(-1)?.versionNumber ?? prompt.currentVersion ?? 0) + 1;
+  versions.push({
+    versionNumber: nextNumber,
+    promptText,
+    templateVariables: extractTemplateVariables(promptText),
+    changeSummary,
+    createdBy: userId,
+    createdAt: new Date(),
+  });
+  // Keep the document bounded; the oldest versions go first.
+  while (versions.length > MAX_PROMPT_VERSIONS) versions.shift();
+  prompt.versions = versions;
+  prompt.currentVersion = nextNumber;
+  prompt.promptText = promptText;
+};
+
+/**
+ * Load a prompt for its owner (or an admin, read-only use). Prompts the
+ * requester can't see are 404; visible prompts owned by someone else are 403.
+ */
+const findOwnedPrompt = async (
+  promptId: string,
+  requester: NonNullable<PromptRequester>,
+  { allowAdmin = false } = {},
+) => {
+  const prompt = await findAccessiblePrompt(promptId, requester);
+  const isOwner = String(prompt.user) === String(requester._id);
+  if (!isOwner && !(allowAdmin && isAdmin(requester))) {
+    throw new AppError('Only the prompt owner can do this.', 403);
+  }
+  return prompt;
+};
+
+const serializeVersions = (prompt: any) => ({
+  promptId: String(prompt._id),
+  currentVersion: prompt.currentVersion ?? 1,
+  versions: [...(prompt.versions ?? [])]
+    .reverse()
+    .map((v: any) => ({
+      versionNumber: v.versionNumber,
+      promptText: v.promptText,
+      templateVariables: v.templateVariables ?? [],
+      changeSummary: v.changeSummary ?? '',
+      createdBy: v.createdBy ? String(v.createdBy) : null,
+      createdAt: v.createdAt,
+    })),
+});
+
+export const getPromptVersions = async (
+  promptId: string,
+  requester: NonNullable<PromptRequester>,
+) => serializeVersions(await findOwnedPrompt(promptId, requester, { allowAdmin: true }));
+
+export const createPromptVersion = async (
+  promptId: string,
+  requester: NonNullable<PromptRequester>,
+  input: { promptText: string; changeSummary?: string },
+) => {
+  const prompt = await findOwnedPrompt(promptId, requester);
+  if (input.promptText === prompt.promptText) {
+    throw new AppError('The prompt text is unchanged.', 400);
+  }
+  appendVersion(prompt, input.promptText, requester._id, input.changeSummary || 'Edited');
+  await prompt.save();
+  return serializeVersions(prompt);
+};
+
+export const restorePromptVersion = async (
+  promptId: string,
+  versionNumber: number,
+  requester: NonNullable<PromptRequester>,
+) => {
+  const prompt = await findOwnedPrompt(promptId, requester);
+  const target = (prompt.versions ?? []).find((v: any) => v.versionNumber === versionNumber);
+  if (!target) throw new AppError(`Version ${versionNumber} not found.`, 404);
+  if (target.promptText === prompt.promptText) {
+    throw new AppError(`Version ${versionNumber} is already the current text.`, 400);
+  }
+  appendVersion(prompt, target.promptText, requester._id, `Restored version ${versionNumber}`);
+  await prompt.save();
+  return serializeVersions(prompt);
+};
+
+const serializeTestCases = (prompt: any) => ({
+  promptId: String(prompt._id),
+  templateVariables: extractTemplateVariables(prompt.promptText ?? ''),
+  testCases: (prompt.testCases ?? []).map((t: any) => ({
+    id: String(t._id),
+    name: t.name,
+    variables: Object.fromEntries(t.variables ?? []),
+    expectedAssertions: t.expectedAssertions ?? [],
+  })),
+});
+
+export const getPromptTestCases = async (
+  promptId: string,
+  requester: NonNullable<PromptRequester>,
+) => serializeTestCases(await findOwnedPrompt(promptId, requester, { allowAdmin: true }));
+
+export const replacePromptTestCases = async (
+  promptId: string,
+  requester: NonNullable<PromptRequester>,
+  testCases: { name: string; variables: Record<string, string>; expectedAssertions?: string[] }[],
+) => {
+  const prompt = await findOwnedPrompt(promptId, requester);
+  if (testCases.length > MAX_TEST_CASES) {
+    throw new AppError(`A prompt can have at most ${MAX_TEST_CASES} test cases.`, 400);
+  }
+  prompt.testCases = testCases.map((t) => ({
+    name: t.name,
+    variables: new Map(Object.entries(t.variables)),
+    expectedAssertions: t.expectedAssertions ?? [],
+  })) as any;
+  await prompt.save();
+  return serializeTestCases(prompt);
+};

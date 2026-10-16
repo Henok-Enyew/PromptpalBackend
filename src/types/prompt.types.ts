@@ -3,6 +3,22 @@ import { ModerationReason } from './moderation.types.js';
 
 export type MediaType = 'text' | 'image' | 'video' | 'audio';
 
+export interface IPromptVersion {
+  versionNumber: number;
+  promptText: string;
+  templateVariables: string[];
+  changeSummary: string;
+  createdBy?: Types.ObjectId;
+  createdAt: Date;
+}
+
+export interface IPromptTestCase {
+  _id?: Types.ObjectId;
+  name: string;
+  variables: Map<string, string>;
+  expectedAssertions?: string[];
+}
+
 export interface IPromptDocument extends Document {
   user: Types.ObjectId;
   title: string;
@@ -18,6 +34,11 @@ export interface IPromptDocument extends Document {
   aiModel: string;
   tags: string[];
   slug?: string;
+  currentVersion: number;
+  versions?: IPromptVersion[];
+  testCases?: IPromptTestCase[];
+  forkedFrom?: Types.ObjectId | null;
+  forksCount: number;
   likes: Types.ObjectId[];
   likesCount: number;
   views: number;

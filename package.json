@@ -15,7 +15,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "migrate:prompt-slugs": "tsx src/_migrations/add-prompt-slugs.migration.ts"
+    "migrate:prompt-slugs": "tsx src/_migrations/add-prompt-slugs.migration.ts",
+    "migrate:prompt-versions": "tsx src/_migrations/add-prompt-versions.migration.ts"
   },
   "keywords": [
     "prompt-pal",

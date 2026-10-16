@@ -118,6 +118,31 @@
 import mongoose, { Schema, SchemaDefinition } from 'mongoose';
 import { IPromptDocument } from '../types/prompt.types.js';
 import { generateUniqueSlug } from '../utils/slug.util.js';
+import { extractTemplateVariables } from '../utils/template.util.js';
+
+export const MAX_PROMPT_VERSIONS = 200;
+export const MAX_TEST_CASES = 20;
+
+const promptVersionSchema = new Schema(
+  {
+    versionNumber: { type: Number, required: true },
+    promptText: { type: String, required: true },
+    templateVariables: [{ type: String }],
+    changeSummary: { type: String, trim: true, maxlength: 300, default: '' },
+    createdBy: { type: Schema.Types.ObjectId, ref: 'User' },
+    createdAt: { type: Date, default: Date.now },
+  },
+  { _id: false },
+);
+
+const testCaseSchema = new Schema(
+  {
+    name: { type: String, required: true, trim: true, maxlength: 100 },
+    variables: { type: Map, of: String, default: {} },
+    expectedAssertions: [{ type: String, trim: true, maxlength: 500 }],
+  },
+  { _id: true },
+);
 
 const promptSchemaDefinition: SchemaDefinition<IPromptDocument> = {
   user: {
@@ -202,6 +227,33 @@ const promptSchemaDefinition: SchemaDefinition<IPromptDocument> = {
     type: Number,
     default: 0,
   },
+  // Version history. `promptText` always mirrors the current version.
+  // Owner-only: stripped from JSON (see transform below); read via
+  // GET /prompts/:id/versions. Append with $push, never by saving a doc
+  // that was loaded without this path.
+  currentVersion: {
+    type: Number,
+    default: 1,
+  },
+  versions: {
+    type: [promptVersionSchema],
+    default: undefined,
+  },
+  // Saved variable sets for template prompts (owner-only, like versions).
+  testCases: {
+    type: [testCaseSchema],
+    default: undefined,
+  },
+  // Lineage for forks (Phase 2 UI).
+  forkedFrom: {
+    type: Schema.Types.ObjectId,
+    ref: 'Prompt',
+    default: null,
+  },
+  forksCount: {
+    type: Number,
+    default: 0,
+  },
   views: {
     type: Number,
     default: 0,
@@ -266,10 +318,18 @@ const promptSchemaDefinition: SchemaDefinition<IPromptDocument> = {
   },
 };
 
+// Version history and test cases are owner-only data; never serialize them
+// with the prompt. Owner endpoints read them from the document directly.
+const stripOwnerOnly = (_doc: unknown, ret: Record<string, unknown>) => {
+  delete ret.versions;
+  delete ret.testCases;
+  return ret;
+};
+
 const promptSchema = new Schema<IPromptDocument>(promptSchemaDefinition, {
   timestamps: true,
-  toJSON: { virtuals: true },
-  toObject: { virtuals: true },
+  toJSON: { virtuals: true, transform: stripOwnerOnly },
+  toObject: { virtuals: true, transform: stripOwnerOnly },
 });
 
 promptSchema.index({ user: 1 });
@@ -302,6 +362,19 @@ promptSchema.pre('validate', async function () {
     this.slug = await generateUniqueSlug(this.title, Prompt);
   }
   this.likesCount = this.likes?.length ?? 0;
+  if (this.isNew && !this.versions?.length && this.promptText) {
+    this.versions = [
+      {
+        versionNumber: 1,
+        promptText: this.promptText,
+        templateVariables: extractTemplateVariables(this.promptText),
+        changeSummary: 'Initial version',
+        createdBy: this.user,
+        createdAt: new Date(),
+      },
+    ] as any;
+    this.currentVersion = 1;
+  }
 });
 
 const Prompt = mongoose.model<IPromptDocument>('Prompt', promptSchema);

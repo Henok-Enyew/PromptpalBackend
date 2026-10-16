@@ -24,6 +24,7 @@ export const createPromptSchema = z.object({
   promptText: z
     .string()
     .min(10, 'Prompt text must be at least 10 characters.')
+    .max(10000, 'Prompt text cannot exceed 10,000 characters.')
     .transform(trimOnly),
   sampleOutput: z.string().min(1, 'Sample output is required.').optional(),
   outputs: z.preprocess(
@@ -109,6 +110,7 @@ export const updatePromptSchema = z.object({
   promptText: z
     .string()
     .min(10, 'Prompt text must be at least 10 characters.')
+    .max(10000, 'Prompt text cannot exceed 10,000 characters.')
     .transform(trimOnly)
     .optional(),
   sampleOutput: z.string().min(1, 'Sample output is required.').optional(),
@@ -210,6 +212,42 @@ export const getPromptBySlugSchema = z.object({
 export const getPromptSchema = z.object({
   id: objectIdSchema,
 });
+
+export const createVersionSchema = z.object({
+  promptText: z
+    .string()
+    .trim()
+    .min(10, 'Prompt text must be at least 10 characters.')
+    .max(10000, 'Prompt text cannot exceed 10,000 characters.'),
+  changeSummary: z.string().trim().max(300).optional(),
+});
+
+export const versionParamsSchema = z.object({
+  id: objectIdSchema,
+  versionNumber: z.coerce.number().int().positive(),
+});
+
+const variableName = z
+  .string()
+  .regex(/^[A-Za-z_][A-Za-z0-9_]*$/, 'Variable names must look like {{name}}.');
+
+export const replaceTestCasesSchema = z.object({
+  testCases: z
+    .array(
+      z.object({
+        name: z.string().trim().min(1).max(100),
+        variables: z
+          .record(variableName, z.string().max(5000))
+          .refine((v) => Object.keys(v).length <= 30, 'At most 30 variables per test case.'),
+        expectedAssertions: z.array(z.string().trim().min(1).max(500)).max(10).optional(),
+      }),
+    )
+    .max(20, 'A prompt can have at most 20 test cases.'),
+});
+
+export type CreateVersionInput = z.infer<typeof createVersionSchema>;
+export type VersionParams = z.infer<typeof versionParamsSchema>;
+export type ReplaceTestCasesInput = z.infer<typeof replaceTestCasesSchema>;
 
 export type CreatePromptInput = z.infer<typeof createPromptSchema>;
 export type UpdatePromptInput = z.infer<typeof updatePromptSchema>;

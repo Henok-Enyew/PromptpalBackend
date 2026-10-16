@@ -10,6 +10,9 @@ import {
   feedQuerySchema,
   getPromptSchema,
   getPromptBySlugSchema,
+  createVersionSchema,
+  versionParamsSchema,
+  replaceTestCasesSchema,
 } from '../validation/prompt.schema.js';
 import { flagContentSchema } from '../validation/admin.validation.js';
 import commentRoutes from './comment.routes.js';
@@ -799,6 +802,95 @@ router.post(
 );
 
 // Mount comment routes as nested routes
+/**
+ * @swagger
+ * /prompts/{id}/versions:
+ *   get:
+ *     summary: Version history of a prompt (owner or admin)
+ *     tags: [Prompts]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Versions, newest first
+ *       403:
+ *         description: Not the owner
+ *       404:
+ *         description: Prompt not found
+ *   post:
+ *     summary: Save a new version (owner)
+ *     tags: [Prompts]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [promptText]
+ *             properties:
+ *               promptText:
+ *                 type: string
+ *               changeSummary:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Updated version history
+ */
+router.get('/:id/versions', protect, validate(getPromptSchema, 'params'), promptController.getVersions);
+router.post(
+  '/:id/versions',
+  protect,
+  validate(getPromptSchema, 'params'),
+  validate(createVersionSchema),
+  promptController.createVersion,
+);
+
+/**
+ * @swagger
+ * /prompts/{id}/versions/{versionNumber}/restore:
+ *   post:
+ *     summary: Restore an earlier version as a new version (owner)
+ *     tags: [Prompts]
+ *     responses:
+ *       201:
+ *         description: Updated version history
+ */
+router.post(
+  '/:id/versions/:versionNumber/restore',
+  protect,
+  validate(versionParamsSchema, 'params'),
+  promptController.restoreVersion,
+);
+
+/**
+ * @swagger
+ * /prompts/{id}/test-cases:
+ *   get:
+ *     summary: Saved variable sets for a template prompt (owner or admin)
+ *     tags: [Prompts]
+ *     responses:
+ *       200:
+ *         description: Test cases and the template's variables
+ *   put:
+ *     summary: Replace all test cases (owner, max 20)
+ *     tags: [Prompts]
+ *     responses:
+ *       200:
+ *         description: Saved test cases
+ */
+router.get('/:id/test-cases', protect, validate(getPromptSchema, 'params'), promptController.getTestCases);
+router.put(
+  '/:id/test-cases',
+  protect,
+  validate(getPromptSchema, 'params'),
+  validate(replaceTestCasesSchema),
+  promptController.replaceTestCases,
+);
+
 router.use('/:promptId/comments', commentRoutes);
 
 export default router;
