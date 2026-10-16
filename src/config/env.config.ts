@@ -143,6 +143,16 @@ const config: AppConfig = {
     model: getEnvVar('GROQ_MODEL', false, 'llama-3.3-70b-versatile'),
   },
 
+  anthropic: {
+    apiKey: getEnvVar('ANTHROPIC_API_KEY', false),
+    // Cheap, fast default for benchmark runs; override per deployment.
+    model: getEnvVar('ANTHROPIC_MODEL', false, 'claude-haiku-5-5'),
+  },
+
+  // "provider:model" used to score benchmark outputs. Must differ from the
+  // evaluated models; the evaluation service falls back to another provider.
+  judgeModel: getEnvVar('JUDGE_MODEL', false, 'google:gemini-2.5-flash')!,
+
   aiProvider: getEnvVar('AI_PROVIDER', false, 'auto')!,
 
   trustProxyHops: getEnvVarAsInt('TRUST_PROXY_HOPS', false, 1)!,

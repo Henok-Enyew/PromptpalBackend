@@ -85,7 +85,10 @@ GOOGLE_CLIENT_ID=<google-client-id>
 GOOGLE_CLIENT_SECRET=<google-client-secret>
 GOOGLE_REDIRECT_URI=postmessage
 
-AI_PROVIDER=auto           # groq | gemini | auto (prefers Groq)
+AI_PROVIDER=auto           # optimizer model: groq | gemini | anthropic | auto (prefers Groq)
+ANTHROPIC_API_KEY=<anthropic-api-key>
+ANTHROPIC_MODEL=claude-haiku-5-5
+JUDGE_MODEL=google:gemini-2.5-flash   # provider:model that scores benchmark runs
 GROQ_API_KEY=<groq-api-key>
 GROQ_MODEL=llama-3.3-70b-versatile
 GOOGLE_AI_API_KEY=<gemini-api-key>

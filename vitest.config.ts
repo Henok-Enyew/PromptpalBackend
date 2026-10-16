@@ -29,6 +29,8 @@ export default defineConfig({
       CLIENT_URL: 'http://localhost:5173',
       GOOGLE_AI_API_KEY: '',
       GROQ_API_KEY: '',
+      ANTHROPIC_API_KEY: '',
+      AI_PROVIDER: 'auto',
       CLOUDINARY_CLOUD_NAME: '',
     },
   },

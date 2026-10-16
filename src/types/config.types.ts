@@ -54,6 +54,11 @@ interface GeminiConfig {
   maxTokens?: number;
 }
 
+interface AnthropicConfig {
+  apiKey?: string;
+  model?: string;
+}
+
 interface GroqConfig {
   apiKey?: string;
   model?: string;
@@ -84,6 +89,8 @@ export interface AppConfig {
   googleOAuth: GoogleOAuthConfig;
   gemini: GeminiConfig;
   groq: GroqConfig;
+  anthropic: AnthropicConfig;
+  judgeModel: string;
   trustProxyHops: number;
   rateLimit: RateLimitConfig;
   cookieSameSite: 'lax' | 'strict' | 'none';
