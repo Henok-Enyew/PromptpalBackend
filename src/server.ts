@@ -6,6 +6,7 @@ import logger from './config/logger.config.js';
 import connectDB, { disconnectDB } from './config/db.config.js';
 
 import app from './app.js';
+import { shutdownProductAnalytics } from './services/productAnalytics.service.js';
 
 process.on('uncaughtException', (err: Error) => {
   logger.fatal(err, '💥 UNCAUGHT EXCEPTION! Shutting down...');
@@ -57,6 +58,7 @@ process.on('unhandledRejection', (reason: Error | any) => {
 
 const gracefulShutdown = (signal: string) => {
   logger.info(`👋 ${signal} RECEIVED. Shutting down gracefully...`);
+  void shutdownProductAnalytics();
   if (server) {
     server.close(async () => {
       logger.info('[Server]: HTTP server closed.');

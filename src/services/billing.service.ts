@@ -12,6 +12,7 @@ import BillingEvent from '../models/billingEvent.model.js';
 import AppError from '../utils/appError.util.js';
 import { serializeLimits } from '../config/plans.js';
 import { effectivePlan } from './quota.service.js';
+import { captureServerEvent } from './productAnalytics.service.js';
 import type { IUserDocument, SubscriptionStatus, UserSubscription } from '../types/user.types.js';
 
 export type BillingInterval = 'monthly' | 'yearly';
@@ -230,6 +231,7 @@ export const handleWebhook = async (rawBody: Buffer): Promise<WebhookOutcome> =>
     const stale =
       existing.lsSubscriptionId === subscriptionId && existing.lsUpdatedAt && updatedAt < new Date(existing.lsUpdatedAt);
     if (!stale) {
+      const wasCancelled = existing.status === 'cancelled';
       const endsAt = a.ends_at ? new Date(a.ends_at) : null;
       const variantId = String(a.variant_id);
       user.subscription = {
@@ -246,6 +248,9 @@ export const handleWebhook = async (rawBody: Buffer): Promise<WebhookOutcome> =>
       user.plan = planFor(a.status, endsAt);
       await user.save({ validateModifiedOnly: true });
       logger.info({ event, userId: user.id, status: a.status, plan: user.plan }, '[Billing]: subscription updated');
+      if (a.status === 'cancelled' && !wasCancelled) {
+        captureServerEvent(user.id, 'subscription_cancelled', { interval: user.subscription.interval ?? null });
+      }
     }
     outcome = { result: stale ? 'ignored' : 'applied', event, userId: user.id };
   } else if (event === 'subscription_payment_success') {
@@ -256,6 +261,9 @@ export const handleWebhook = async (rawBody: Buffer): Promise<WebhookOutcome> =>
       user.subscription = { ...(user.subscription ?? {}), lastPaymentAt: new Date(a.created_at ?? Date.now()) };
       await user.save({ validateModifiedOnly: true });
       outcome = { result: 'applied', event, firstPayment, userId: user.id };
+      if (firstPayment) {
+        captureServerEvent(user.id, 'checkout_completed_pro', { interval: user.subscription?.interval ?? null });
+      }
     }
   } else if (event === 'subscription_payment_failed') {
     // The matching subscription_updated (status past_due) carries the state change.

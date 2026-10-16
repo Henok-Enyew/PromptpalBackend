@@ -104,6 +104,10 @@ LEMONSQUEEZY_WEBHOOK_SECRET=<signing-secret>   # webhook URL: <api>/api/v1/billi
 LEMONSQUEEZY_PRO_MONTHLY_VARIANT_ID=<variant-id>
 LEMONSQUEEZY_PRO_YEARLY_VARIANT_ID=<variant-id>
 
+# Product analytics (server events such as checkout_completed_pro). Optional.
+POSTHOG_API_KEY=<same project key as the frontend's VITE_POSTHOG_KEY>
+POSTHOG_HOST=https://us.i.posthog.com
+
 SUPER_ADMIN_EMAIL=<admin-email>
 SUPER_ADMIN_PASSWORD=<admin-password>
 SUPER_ADMIN_PHONE=<admin-phone>

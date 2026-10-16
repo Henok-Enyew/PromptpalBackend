@@ -167,6 +167,14 @@ const config: AppConfig = {
     apiUrl: getEnvVar('LEMONSQUEEZY_API_URL', false, 'https://api.lemonsqueezy.com/v1')!,
   },
 
+  // Product analytics (server-side events such as checkout_completed_pro).
+  // Optional; nothing is sent when the key is unset. Use the same project as
+  // the frontend's VITE_POSTHOG_KEY.
+  posthog: {
+    apiKey: getEnvVar('POSTHOG_API_KEY', false),
+    host: getEnvVar('POSTHOG_HOST', false, 'https://us.i.posthog.com')!,
+  },
+
   trustProxyHops: getEnvVarAsInt('TRUST_PROXY_HOPS', false, 1)!,
 
   // Requests per window. Windows: global 15 min, auth 15 min, AI 1 hour.

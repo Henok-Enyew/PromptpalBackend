@@ -73,6 +73,11 @@ interface LemonSqueezyConfig {
   apiUrl: string;
 }
 
+interface PostHogConfig {
+  apiKey?: string;
+  host: string;
+}
+
 interface RateLimitConfig {
   globalMax: number;
   authMax: number;
@@ -101,6 +106,7 @@ export interface AppConfig {
   anthropic: AnthropicConfig;
   judgeModel: string;
   lemonSqueezy: LemonSqueezyConfig;
+  posthog: PostHogConfig;
   trustProxyHops: number;
   rateLimit: RateLimitConfig;
   cookieSameSite: 'lax' | 'strict' | 'none';
