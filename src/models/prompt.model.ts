@@ -117,6 +117,7 @@
  */
 import mongoose, { Schema, SchemaDefinition } from 'mongoose';
 import { IPromptDocument } from '../types/prompt.types.js';
+import { generateUniqueSlug } from '../utils/slug.util.js';
 
 const promptSchemaDefinition: SchemaDefinition<IPromptDocument> = {
   user: {
@@ -130,6 +131,12 @@ const promptSchemaDefinition: SchemaDefinition<IPromptDocument> = {
     required: [true, 'Title is required.'],
     trim: true,
     maxlength: [200, 'Title cannot exceed 200 characters.'],
+  },
+  // Stable public URL key (/prompts/:slug). Generated once on creation and
+  // never changed on title edits, so shared links keep working.
+  slug: {
+    type: String,
+    trim: true,
   },
   description: {
     type: String,
@@ -190,6 +197,11 @@ const promptSchemaDefinition: SchemaDefinition<IPromptDocument> = {
       ref: 'User',
     },
   ],
+  // Denormalized likes.length so the feed can sort by popularity server-side.
+  likesCount: {
+    type: Number,
+    default: 0,
+  },
   views: {
     type: Number,
     default: 0,
@@ -280,6 +292,17 @@ promptSchema.index({ isHidden: 1, isDeleted: 1, createdAt: -1 });
 promptSchema.index({ flaggedCount: -1, lastFlaggedAt: -1 });
 promptSchema.index({ deletedBy: 1 });
 promptSchema.index({ isPublic: 1, isHidden: 1, isDeleted: 1, createdAt: -1 });
+promptSchema.index({ isPublic: 1, isHidden: 1, isDeleted: 1, likesCount: -1 });
+promptSchema.index({ isPublic: 1, isHidden: 1, isDeleted: 1, shares: -1 });
+// Sparse so documents created before slugs existed don't collide on null.
+promptSchema.index({ slug: 1 }, { unique: true, sparse: true });
+
+promptSchema.pre('validate', async function () {
+  if (!this.slug && this.title) {
+    this.slug = await generateUniqueSlug(this.title, Prompt);
+  }
+  this.likesCount = this.likes?.length ?? 0;
+});
 
 const Prompt = mongoose.model<IPromptDocument>('Prompt', promptSchema);
 

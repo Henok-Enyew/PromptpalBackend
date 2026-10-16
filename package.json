@@ -14,7 +14,8 @@
     "format": "prettier --write \"src/**/*.ts\"",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "migrate:prompt-slugs": "tsx src/_migrations/add-prompt-slugs.migration.ts"
   },
   "keywords": [
     "prompt-pal",

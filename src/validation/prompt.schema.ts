@@ -196,7 +196,15 @@ export const feedQuerySchema = z.object({
     .default(20),
   tag: z.string().transform(trimAndSanitize).optional(),
   aiModel: z.string().transform(trimAndSanitize).optional(),
-  search: z.string().transform(trimAndSanitize).optional(),
+  search: z.string().max(200).transform(trimAndSanitize).optional(),
+  sort: z.enum(['newest', 'likes', 'shares']).optional().default('newest'),
+});
+
+export const getPromptBySlugSchema = z.object({
+  slug: z
+    .string()
+    .max(120)
+    .regex(/^[a-z0-9-]+$/, 'Invalid prompt slug.'),
 });
 
 export const getPromptSchema = z.object({
@@ -207,3 +215,4 @@ export type CreatePromptInput = z.infer<typeof createPromptSchema>;
 export type UpdatePromptInput = z.infer<typeof updatePromptSchema>;
 export type FeedQueryParams = z.infer<typeof feedQuerySchema>;
 export type GetPromptParams = z.infer<typeof getPromptSchema>;
+export type GetPromptBySlugParams = z.infer<typeof getPromptBySlugSchema>;

@@ -1048,3 +1048,13 @@ export const getCategories = async () => {
   return enrichedCategories;
 };
 
+
+/** Published, public Playbook articles for the frontend prerender/sitemap. */
+export const getPublicSitemapPlaybook = async (limit = 2000) =>
+  BlogPost.find(
+    { status: 'published', isPublic: true, isHidden: false, isDeleted: false },
+    'slug title openingQuote coverImage category tags updatedAt publishedAt',
+  )
+    .sort({ updatedAt: -1 })
+    .limit(limit)
+    .lean();

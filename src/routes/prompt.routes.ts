@@ -9,6 +9,7 @@ import {
   updatePromptSchema,
   feedQuerySchema,
   getPromptSchema,
+  getPromptBySlugSchema,
 } from '../validation/prompt.schema.js';
 import { flagContentSchema } from '../validation/admin.validation.js';
 import commentRoutes from './comment.routes.js';
@@ -292,6 +293,31 @@ router.get(
  *       404:
  *         description: Prompt not found
  */
+/**
+ * @swagger
+ * /prompts/by-slug/{slug}:
+ *   get:
+ *     summary: Get a prompt by its public slug
+ *     tags: [Prompts]
+ *     parameters:
+ *       - in: path
+ *         name: slug
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Prompt found
+ *       404:
+ *         description: Prompt not found or not visible to the requester
+ */
+router.get(
+  '/by-slug/:slug',
+  optionalProtect,
+  validate(getPromptBySlugSchema, 'params'),
+  promptController.getPromptBySlug,
+);
+
 router.get(
   '/:id',
   optionalProtect,

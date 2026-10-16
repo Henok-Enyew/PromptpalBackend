@@ -20,6 +20,7 @@ import promptOptimizerRoutes from './routes/promptOptimizer.routes.js';
 import analyticsRoutes from './routes/analytics.routes.js';
 import blogRoutes from './routes/blog.routes.js';
 import blogAdminRoutes from './routes/blogAdmin.routes.js';
+import publicRoutes from './routes/public.routes.js';
 
 const app: Express = express();
 
@@ -81,6 +82,7 @@ app.use('/api/v1/admin/blogs', blogAdminRoutes);
 app.use('/api/v1/prompts', promptRoutes);
 app.use('/api/v1/prompt-optimizer', promptOptimizerRoutes);
 app.use('/api/v1/blogs', blogRoutes);
+app.use('/api/v1/public', publicRoutes);
 
 app.get('/', (req: Request, res: Response) => {
   res.status(200).json({

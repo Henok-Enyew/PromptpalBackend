@@ -17,7 +17,9 @@ export interface IPromptDocument extends Document {
   mediaType: MediaType;
   aiModel: string;
   tags: string[];
+  slug?: string;
   likes: Types.ObjectId[];
+  likesCount: number;
   views: number;
   shares: number;
   isPublic: boolean;

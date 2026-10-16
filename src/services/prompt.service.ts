@@ -105,8 +105,15 @@ export const createPrompt = async (
   return prompt;
 };
 
+const FEED_SORTS = {
+  newest: { createdAt: -1, _id: -1 },
+  likes: { likesCount: -1, createdAt: -1, _id: -1 },
+  shares: { shares: -1, createdAt: -1, _id: -1 },
+} as const;
+
 export const getFeed = async (query: FeedQueryParams) => {
-  const { page = 1, limit = 20, tag, aiModel, search } = query;
+  const { page = 1, limit = 20, tag, aiModel, search, sort = 'newest' } = query;
+  const sortSpec = FEED_SORTS[sort] ?? FEED_SORTS.newest;
 
   const filter: any = {
     isPublic: true,
@@ -133,12 +140,12 @@ export const getFeed = async (query: FeedQueryParams) => {
       path: 'user',
       select: PUBLIC_AUTHOR_FIELDS,
     })
-    .sort({ createdAt: -1 })
+    .sort(sortSpec)
     .skip(skip)
     .limit(limit);
 
   if (search) {
-    queryBuilder = queryBuilder.sort({ score: { $meta: 'textScore' }, createdAt: -1 });
+    queryBuilder = queryBuilder.sort({ score: { $meta: 'textScore' }, ...sortSpec });
   }
 
   const prompts = await queryBuilder;
@@ -187,9 +194,19 @@ export const getFeed = async (query: FeedQueryParams) => {
 export const getPromptById = async (
   promptId: string,
   requester?: PromptRequester,
+) => getVisiblePrompt({ _id: promptId }, requester);
+
+export const getPromptBySlug = async (
+  slug: string,
+  requester?: PromptRequester,
+) => getVisiblePrompt({ slug }, requester);
+
+const getVisiblePrompt = async (
+  match: { _id: string } | { slug: string },
+  requester?: PromptRequester,
 ) => {
   const prompt = await Prompt.findOneAndUpdate(
-    { _id: promptId, ...buildPromptAccessFilter(requester) },
+    { ...match, ...buildPromptAccessFilter(requester) },
     { $inc: { views: 1 } },
     { new: true },
   ).populate({
@@ -204,7 +221,7 @@ export const getPromptById = async (
   // Add likesCount, commentCount, and sharesCount
   const promptObj = prompt.toObject();
   const commentCount = await Comment.countDocuments({
-    prompt: promptId,
+    prompt: prompt._id,
     isDeleted: false,
     isHidden: false,
   });
@@ -384,8 +401,9 @@ export const incrementShare = async (
     throw new AppError('Prompt not found.', 404);
   }
 
-  // Generate shareable URL (frontend will construct the full URL)
-  const shareableUrl = `/prompts/${promptId}`;
+  // Shareable path (frontend builds the full URL); slug-less legacy prompts
+  // fall back to the id, which the frontend redirects.
+  const shareableUrl = `/prompts/${prompt.slug ?? promptId}`;
 
   return {
     prompt,
@@ -556,3 +574,17 @@ export const getUserFavorites = async (
   };
 };
 
+
+/**
+ * Everything public that search engines should index, for the frontend's
+ * build-time prerender and sitemap. Public data only; capped to keep the
+ * build fast.
+ */
+export const getPublicSitemapPrompts = async (limit = 5000) =>
+  Prompt.find(
+    { isPublic: true, isHidden: false, isDeleted: false, slug: { $exists: true } },
+    'slug title description aiModel tags mediaType sampleOutput updatedAt',
+  )
+    .sort({ updatedAt: -1 })
+    .limit(limit)
+    .lean();

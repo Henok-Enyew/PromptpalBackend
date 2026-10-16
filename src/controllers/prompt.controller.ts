@@ -4,6 +4,7 @@ import * as promptService from '../services/prompt.service.js';
 import {
   FeedQueryParams,
   GetPromptParams,
+  GetPromptBySlugParams,
 } from '../validation/prompt.schema.js';
 import AppError from '../utils/appError.util.js';
 
@@ -208,6 +209,20 @@ export const getPrompt = catchAsync(
     const { id } = req.params as GetPromptParams;
 
     const prompt = await promptService.getPromptById(id, req.user);
+
+    res.status(200).json({
+      status: 'success',
+      data: {
+        prompt,
+      },
+    });
+  },
+);
+
+export const getPromptBySlug = catchAsync(
+  async (req: Request, res: Response) => {
+    const { slug } = req.params as GetPromptBySlugParams;
+    const prompt = await promptService.getPromptBySlug(slug, req.user);
 
     res.status(200).json({
       status: 'success',
