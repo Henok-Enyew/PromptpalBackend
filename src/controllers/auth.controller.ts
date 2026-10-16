@@ -13,10 +13,11 @@ import {
 } from '../validation/auth.schema.js';
 import config from '../config/env.config.js';
 
+// The JWT lives only in this httpOnly cookie; it is never returned in a body.
 const cookieOptions = {
   httpOnly: true,
-  secure: config.isProduction ? true : false,
-  sameSite: (config.isProduction ? 'none' : 'lax') as 'none' | 'lax',
+  secure: config.isProduction || config.cookieSameSite === 'none',
+  sameSite: config.cookieSameSite,
   maxAge: 90 * 24 * 60 * 60 * 1000,
   path: '/', // Ensure cookie is available for all paths
 };
@@ -83,7 +84,6 @@ export const loginHandler = catchAsync(
       status: 'success',
       data: {
         user,
-        token, // Also return token in response for frontend to store
       },
     });
   },
@@ -152,7 +152,6 @@ export const googleAuthHandler = catchAsync(
       status: 'success',
       data: {
         user,
-        token, // Also return token in response for frontend to store
       },
     });
   },
@@ -160,10 +159,8 @@ export const googleAuthHandler = catchAsync(
 
 export const logoutHandler = catchAsync(
   async (req: Request, res: Response, next: NextFunction) => {
-    res.cookie('jwt', 'loggedout', {
-      ...cookieOptions,
-      expires: new Date(Date.now() + 10 * 1000),
-    });
+    const { maxAge: _maxAge, ...clearOptions } = cookieOptions;
+    res.clearCookie('jwt', clearOptions);
 
     res.status(200).json({
       status: 'success',

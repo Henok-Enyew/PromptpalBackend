@@ -1,9 +1,7 @@
 import { z } from 'zod';
 import mongoose from 'mongoose';
-import { sanitizeInput } from '../utils/sanitize.util.js';
+import { trimAndSanitize } from '../utils/sanitize.util.js';
 
-const trimAndSanitize = (input: unknown) =>
-  typeof input === 'string' ? sanitizeInput(input.trim()) : input;
 
 const objectIdSchema = z.string().refine(
   (val) => {

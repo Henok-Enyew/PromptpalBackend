@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { protect } from '../middleware/auth.middleware.js';
+import { protect, optionalProtect } from '../middleware/auth.middleware.js';
 import { upload } from '../utils/fileUpload.util.js';
 import * as promptController from '../controllers/prompt.controller.js';
 import * as flagController from '../controllers/flag.controller.js';
@@ -294,6 +294,7 @@ router.get(
  */
 router.get(
   '/:id',
+  optionalProtect,
   validate(getPromptSchema, 'params'),
   promptController.getPrompt,
 );
@@ -705,6 +706,7 @@ router.post(
  */
 router.post(
   '/:id/share',
+  optionalProtect,
   validate(getPromptSchema, 'params'),
   promptController.sharePrompt,
 );

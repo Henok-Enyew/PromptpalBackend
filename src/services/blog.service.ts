@@ -1,4 +1,5 @@
 import BlogPost from '../models/blog.model.js';
+import { PUBLIC_AUTHOR_FIELDS } from '../utils/user.util.js';
 import Comment from '../models/comment.model.js';
 import AppError from '../utils/appError.util.js';
 import logger from '../config/logger.config.js';
@@ -40,7 +41,7 @@ export const createBlog = async (userId: string, input: any) => {
 
   await blog.populate({
     path: 'author',
-    select: 'firstName lastName email profileImage',
+    select: PUBLIC_AUTHOR_FIELDS,
   });
 
   logger.info(`Blog created: ${blog._id} by user ${userId}`);
@@ -106,7 +107,7 @@ export const getBlogs = async (query: BlogQueryParams, userId?: string) => {
   let queryBuilder = BlogPost.find(filter)
     .populate({
       path: 'author',
-      select: 'firstName lastName email profileImage',
+      select: PUBLIC_AUTHOR_FIELDS,
     })
     .skip(skip)
     .limit(limit);
@@ -203,7 +204,7 @@ export const getBlogBySlug = async (
   })
     .populate({
       path: 'author',
-      select: 'firstName lastName email profileImage',
+      select: PUBLIC_AUTHOR_FIELDS,
     })
     .populate({
       path: 'upNext',
@@ -266,7 +267,7 @@ export const getBlogById = async (blogId: string, userId?: string) => {
   })
     .populate({
       path: 'author',
-      select: 'firstName lastName email profileImage',
+      select: PUBLIC_AUTHOR_FIELDS,
     })
     .populate({
       path: 'upNext',
@@ -354,7 +355,7 @@ export const updateBlog = async (
 
   await blog.populate({
     path: 'author',
-    select: 'firstName lastName email profileImage',
+    select: PUBLIC_AUTHOR_FIELDS,
   });
 
   logger.info(`Blog updated: ${blog._id} by user ${userId}`);

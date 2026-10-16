@@ -1,0 +1,5 @@
+# Single-package repo; this file only carries pnpm settings.
+overrides:
+  # 5.1.3 types route params as string | string[]; revisit when controllers
+  # are updated to narrow params.
+  '@types/express-serve-static-core': 5.1.0

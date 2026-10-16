@@ -1,9 +1,7 @@
 import { z } from 'zod';
 import mongoose from 'mongoose';
-import { sanitizeInput } from '../utils/sanitize.util.js';
+import { trimAndSanitize, trimOnly } from '../utils/sanitize.util.js';
 
-const trimAndSanitize = (input: unknown) =>
-  typeof input === 'string' ? sanitizeInput(input.trim()) : input;
 
 const objectIdSchema = z.string().refine(
   (val) => {
@@ -26,7 +24,7 @@ export const createPromptSchema = z.object({
   promptText: z
     .string()
     .min(10, 'Prompt text must be at least 10 characters.')
-    .transform(trimAndSanitize),
+    .transform(trimOnly),
   sampleOutput: z.string().min(1, 'Sample output is required.').optional(),
   outputs: z.preprocess(
     (val) => {
@@ -111,7 +109,7 @@ export const updatePromptSchema = z.object({
   promptText: z
     .string()
     .min(10, 'Prompt text must be at least 10 characters.')
-    .transform(trimAndSanitize)
+    .transform(trimOnly)
     .optional(),
   sampleOutput: z.string().min(1, 'Sample output is required.').optional(),
   outputs: z.preprocess(

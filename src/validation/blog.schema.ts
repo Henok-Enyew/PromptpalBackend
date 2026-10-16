@@ -1,9 +1,7 @@
 import { z } from 'zod';
 import mongoose from 'mongoose';
-import { sanitizeInput } from '../utils/sanitize.util.js';
+import { trimAndSanitize, trimOnly } from '../utils/sanitize.util.js';
 
-const trimAndSanitize = (input: unknown) =>
-  typeof input === 'string' ? sanitizeInput(input.trim()) : input;
 
 const objectIdSchema = z.string().refine(
   (val) => {
@@ -30,15 +28,15 @@ const promptSnippetSchema = z.object({
   systemInstruction: z
     .string()
     .max(2000, 'System instruction cannot exceed 2000 characters.')
-    .transform(trimAndSanitize)
+    .transform(trimOnly)
     .optional(),
   constraints: z
-    .array(z.string().transform(trimAndSanitize))
+    .array(z.string().transform(trimOnly))
     .max(20, 'Cannot have more than 20 constraints.')
     .optional()
     .default([]),
   examples: z
-    .array(z.string().transform(trimAndSanitize))
+    .array(z.string().transform(trimOnly))
     .max(10, 'Cannot have more than 10 examples.')
     .optional()
     .default([]),
@@ -55,7 +53,7 @@ const promptSnippetSchema = z.object({
     .string()
     .min(1, 'Full prompt text is required.')
     .max(5000, 'Full prompt text cannot exceed 5000 characters.')
-    .transform(trimAndSanitize),
+    .transform(trimOnly),
 });
 
 // Blog Section Image Schema
@@ -90,7 +88,7 @@ const blogSectionSchema = z.object({
     .string()
     .min(10, 'Section content must be at least 10 characters.')
     .max(10000, 'Section content cannot exceed 10000 characters.')
-    .transform(trimAndSanitize),
+    .transform(trimOnly),
   promptSnippet: promptSnippetSchema.optional(),
   image: blogSectionImageSchema.optional(),
   order: z.number().int().min(0, 'Section order cannot be negative.'),
@@ -188,7 +186,7 @@ export const addSectionSchema = z.object({
     .string()
     .min(10, 'Section content must be at least 10 characters.')
     .max(10000, 'Section content cannot exceed 10000 characters.')
-    .transform(trimAndSanitize),
+    .transform(trimOnly),
   promptSnippet: promptSnippetSchema.optional(),
   image: blogSectionImageSchema.optional(),
   order: z.number().int().min(0, 'Section order cannot be negative.'),
@@ -211,7 +209,7 @@ export const updateSectionSchema = z.object({
     .string()
     .min(10, 'Section content must be at least 10 characters.')
     .max(10000, 'Section content cannot exceed 10000 characters.')
-    .transform(trimAndSanitize)
+    .transform(trimOnly)
     .optional(),
   promptSnippet: promptSnippetSchema.optional(),
   image: blogSectionImageSchema.optional(),

@@ -48,6 +48,24 @@ const getEnvVarAsInt = (
   return valueInt;
 };
 
+const getEnvVarAsFloat = (
+  key: string,
+  required: boolean = true,
+  defaultValue?: number,
+): number | undefined => {
+  const valueStr = getEnvVar(key, required, defaultValue?.toString());
+  if (valueStr === undefined) return undefined;
+
+  const value = parseFloat(valueStr);
+  if (isNaN(value)) {
+    console.error(
+      `💥 FATAL ERROR: Environment variable "${key}" must be a number! Found: ${valueStr}`,
+    );
+    process.exit(1);
+  }
+  return value;
+};
+
 const nodeEnv = getEnvVar('NODE_ENV', false, 'development');
 const isProduction = nodeEnv === 'production';
 const defaultLogLevel = isProduction ? 'info' : 'debug';
@@ -116,8 +134,8 @@ const config: AppConfig = {
   gemini: {
     apiKey: getEnvVar('GOOGLE_AI_API_KEY', false),
     model: getEnvVar('GEMINI_MODEL', false, 'gemini-2.5-flash'),
-    temperature: getEnvVarAsInt('OPTIMIZATION_TEMPERATURE', false, 0.7),
-    maxTokens: getEnvVarAsInt('OPTIMIZATION_MAX_TOKENS', false, 2000),
+    temperature: getEnvVarAsFloat('OPTIMIZATION_TEMPERATURE', false, 0.7),
+    maxTokens: getEnvVarAsInt('OPTIMIZATION_MAX_TOKENS', false, 4000),
   },
 
   groq: {
@@ -126,6 +144,19 @@ const config: AppConfig = {
   },
 
   aiProvider: getEnvVar('AI_PROVIDER', false, 'auto')!,
+
+  trustProxyHops: getEnvVarAsInt('TRUST_PROXY_HOPS', false, 1)!,
+
+  // Requests per window. Windows: global 15 min, auth 15 min, AI 1 hour.
+  rateLimit: {
+    globalMax: getEnvVarAsInt('RATE_LIMIT_GLOBAL_MAX', false, 300)!,
+    authMax: getEnvVarAsInt('RATE_LIMIT_AUTH_MAX', false, 10)!,
+    aiMax: getEnvVarAsInt('RATE_LIMIT_AI_MAX', false, 30)!,
+  },
+
+  // 'lax' requires the frontend to reach the API same-site (Vercel /api proxy).
+  // Use 'none' only while the frontend still calls the Render domain directly.
+  cookieSameSite: getEnvVar('COOKIE_SAMESITE', false, 'lax') as AppConfig['cookieSameSite'],
 
   superAdmin: {
     email: getEnvVar('SUPER_ADMIN_EMAIL', false),

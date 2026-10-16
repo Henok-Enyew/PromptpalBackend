@@ -15,7 +15,6 @@ export interface IUser {
   profileImage?: string;
 
   isEmailVerified: boolean;
-  isPhoneVerified: boolean;
 
   createdAt: Date;
   updatedAt: Date;
@@ -25,8 +24,6 @@ export interface IUser {
   emailVerificationToken?: string;
   emailVerificationTokenExpires?: Date;
 
-  phoneOtp?: string;
-  phoneOtpExpires?: Date;
   passwordResetToken?: string;
   passwordResetExpires?: Date;
   googleId?: string;
@@ -46,7 +43,6 @@ export interface PublicUserProfile {
   status: string;
   profileImage?: string;
   isEmailVerified: boolean;
-  isPhoneVerified: boolean;
   createdAt: Date;
 }
 export interface IUserDocument extends IUser, Document {
@@ -54,7 +50,6 @@ export interface IUserDocument extends IUser, Document {
   hasPasswordChangedAfter(JWTTimestamp: number): boolean;
 
   createEmailVerificationToken(): string;
-  createPhoneOtp(): string;
   createPasswordResetToken(): string;
   fullName: string;
 }

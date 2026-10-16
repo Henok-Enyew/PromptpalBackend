@@ -1,13 +1,17 @@
-
 import { Router } from 'express';
-import { protect } from "../middleware/auth.middleware.js";
-import { userProfile,
-         updateProfileHandler
- } from "../controllers/user.controller.js";
- import { updateMeSchema } from '../validation/user.schema.js';
- import { validate } from '../middleware/validate.middleware.js';
- import { upload } from '../utils/fileUpload.util.js';
-
+import { protect } from '../middleware/auth.middleware.js';
+import { authLimiter } from '../middleware/rateLimit.middleware.js';
+import {
+  userProfile,
+  updateProfileHandler,
+  deleteMeHandler,
+} from '../controllers/user.controller.js';
+import {
+  updateMeSchema,
+  deleteAccountSchema,
+} from '../validation/user.schema.js';
+import { validate } from '../middleware/validate.middleware.js';
+import { upload } from '../utils/fileUpload.util.js';
 
 const router = Router();
 
@@ -100,5 +104,39 @@ router.get('/userProfile', protect, userProfile);
  *         description: Unauthorized - valid JWT cookie required
  */
 router.patch('/updateProfile', protect, upload.single('profileImage'), validate(updateMeSchema), updateProfileHandler);
+
+/**
+ * @swagger
+ * /user/me:
+ *   delete:
+ *     summary: Delete the current user's account
+ *     tags: [User]
+ *     description: Soft-deletes the user's prompts and comments, removes optimizer history and anonymizes the account. Email/password accounts must confirm with their password.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [confirm]
+ *             properties:
+ *               password:
+ *                 type: string
+ *               confirm:
+ *                 type: string
+ *                 enum: [DELETE]
+ *     responses:
+ *       200:
+ *         description: Account deleted
+ *       401:
+ *         description: Not logged in or incorrect password
+ */
+router.delete(
+  '/me',
+  protect,
+  authLimiter,
+  validate(deleteAccountSchema),
+  deleteMeHandler,
+);
 
 export default router;

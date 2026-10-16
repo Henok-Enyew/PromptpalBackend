@@ -1,14 +1,18 @@
 import { Request, Response } from 'express';
 import catchAsync from '../utils/catchAsync.util.js';
 import * as userService from '../services/user.service.js';
-import { UpdateProfileInput } from '../validation/user.schema.js';
+import {
+  DeleteAccountInput,
+  UpdateProfileInput,
+} from '../validation/user.schema.js';
 import AppError from '../utils/appError.util.js';
+import { sanitizeUserForResponse } from '../utils/user.util.js';
 
 export const userProfile = catchAsync(async (req: Request, res: Response) => {
   res.status(200).json({
     status: 'success',
     data: {
-      user: req.user,
+      user: sanitizeUserForResponse(req.user!),
     },
   });
 });
@@ -22,8 +26,6 @@ export const updateProfileHandler = catchAsync(
       'status',
       'emailVerificationToken',
       'emailVerificationTokenExpires',
-      'phoneOtp',
-      'phoneOtpExpires',
       'passwordResetToken',
       'passwordResetExpires',
       'profileImage', // Handle via file upload, not body
@@ -56,6 +58,18 @@ export const updateProfileHandler = catchAsync(
     res.status(200).json({
       status: 'success',
       data: { user },
+    });
+  },
+);
+
+export const deleteMeHandler = catchAsync(
+  async (req: Request<{}, {}, DeleteAccountInput>, res: Response) => {
+    await userService.deleteAccount(req.user!.id, req.body);
+
+    res.clearCookie('jwt', { path: '/' });
+    res.status(200).json({
+      status: 'success',
+      message: 'Your account has been deleted.',
     });
   },
 );

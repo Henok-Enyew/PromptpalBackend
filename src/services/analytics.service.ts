@@ -231,9 +231,6 @@ export const getUserStats = async (): Promise<UserStats> => {
         emailVerified: {
           $sum: { $cond: ['$isEmailVerified', 1, 0] },
         },
-        phoneVerified: {
-          $sum: { $cond: ['$isPhoneVerified', 1, 0] },
-        },
       },
     },
   ]);
@@ -247,7 +244,6 @@ export const getUserStats = async (): Promise<UserStats> => {
     adminRole: 0,
     superadminRole: 0,
     emailVerified: 0,
-    phoneVerified: 0,
   };
 
   const activeUsers = await User.countDocuments({
@@ -268,7 +264,6 @@ export const getUserStats = async (): Promise<UserStats> => {
     },
     verified: {
       email: result.emailVerified,
-      phone: result.phoneVerified,
     },
   };
 
@@ -550,7 +545,7 @@ export const getGrowthMetrics = async (
       periodStart.setFullYear(periodStart.getFullYear() - 5);
       groupByFormat = '%Y';
       break;
-    case 'custom':
+    case 'custom': {
       if (!startDate || !endDate) {
         throw new Error('Start date and end date are required for custom period');
       }
@@ -561,6 +556,7 @@ export const getGrowthMetrics = async (
       };
       groupByFormat = '%Y-%m-%d';
       break;
+    }
     default:
       periodStart = new Date(now.setDate(now.getDate() - 30));
       groupByFormat = '%Y-%m-%d';

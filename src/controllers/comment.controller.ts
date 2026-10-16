@@ -21,6 +21,7 @@ export const createComment = catchAsync(
       'prompt',
       req.user.id,
       req.body,
+      req.user,
     );
 
     res.status(201).json({
@@ -36,7 +37,11 @@ export const getComments = catchAsync(
   async (req: Request, res: Response, next: NextFunction) => {
     const { promptId } = req.params as GetCommentsParams;
     const query = req.query as unknown as GetCommentsQuery;
-    const data = await commentService.getCommentsByPrompt(promptId, query);
+    const data = await commentService.getCommentsByPrompt(
+      promptId,
+      query,
+      req.user,
+    );
 
     res.status(200).json({
       status: 'success',
@@ -56,7 +61,7 @@ export const getComments = catchAsync(
 export const getComment = catchAsync(
   async (req: Request, res: Response, next: NextFunction) => {
     const { commentId } = req.params as GetCommentParams;
-    const comment = await commentService.getCommentById(commentId);
+    const comment = await commentService.getCommentById(commentId, req.user);
 
     res.status(200).json({
       status: 'success',

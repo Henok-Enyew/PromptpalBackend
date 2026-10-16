@@ -43,7 +43,6 @@ const createSuperAdmin = async () => {
       role: 'superadmin',
       status: 'approved',
       isEmailVerified: true,
-      isPhoneVerified: phone ? true : false,
     });
 
     logger.info(`✅ Superadmin created successfully! (${email})`);

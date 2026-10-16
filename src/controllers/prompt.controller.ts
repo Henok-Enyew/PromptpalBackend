@@ -207,7 +207,7 @@ export const getPrompt = catchAsync(
   async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params as GetPromptParams;
 
-    const prompt = await promptService.getPromptById(id);
+    const prompt = await promptService.getPromptById(id, req.user);
 
     res.status(200).json({
       status: 'success',
@@ -369,7 +369,7 @@ export const toggleLike = catchAsync(
     }
 
     const { id } = req.params as GetPromptParams;
-    const prompt = await promptService.toggleLike(id, req.user.id);
+    const prompt = await promptService.toggleLike(id, req.user);
 
     res.status(200).json({
       status: 'success',
@@ -383,7 +383,7 @@ export const toggleLike = catchAsync(
 export const sharePrompt = catchAsync(
   async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params as GetPromptParams;
-    const result = await promptService.incrementShare(id);
+    const result = await promptService.incrementShare(id, req.user);
 
     res.status(200).json({
       status: 'success',

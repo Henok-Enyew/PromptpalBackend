@@ -53,3 +53,13 @@ export const getUserSchema = z.object({
 });
 
 export type GetUserParams = z.infer<typeof getUserSchema>;
+
+export const deleteAccountSchema = z.object({
+  // Required for email/password accounts; Google-only accounts have none.
+  password: z.string().max(200).optional(),
+  confirm: z.literal('DELETE', {
+    message: 'Type DELETE to confirm account deletion.',
+  }),
+});
+
+export type DeleteAccountInput = z.infer<typeof deleteAccountSchema>;

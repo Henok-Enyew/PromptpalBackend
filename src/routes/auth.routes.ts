@@ -22,6 +22,7 @@ import {
   googleAuthSchema,
 } from '../validation/auth.schema.js';
 import { protect } from '../middleware/auth.middleware.js';
+import { authLimiter } from '../middleware/rateLimit.middleware.js';
 
 const router = Router();
 
@@ -95,7 +96,12 @@ const router = Router();
  *       400:
  *         description: Validation error (invalid input, passwords don't match, or user already exists)
  */
-router.post('/register', validate(registerUserSchema), registerHandler);
+router.post(
+  '/register',
+  authLimiter,
+  validate(registerUserSchema),
+  registerHandler,
+);
 
 /**
  * @swagger
@@ -189,7 +195,12 @@ router.get(
  *       401:
  *         description: Email not verified or incorrect password
  */
-router.post('/login', validate(loginUserSchema, 'body'), loginHandler);
+router.post(
+  '/login',
+  authLimiter,
+  validate(loginUserSchema, 'body'),
+  loginHandler,
+);
 
 /**
  * @swagger
@@ -231,6 +242,7 @@ router.post('/login', validate(loginUserSchema, 'body'), loginHandler);
  */
 router.post(
   '/forgot-password',
+  authLimiter,
   validate(forgotPasswordSchema, 'body'),
   forgotPasswordHandler,
 );
@@ -290,6 +302,7 @@ router.post(
  */
 router.patch(
   '/reset-password/:token',
+  authLimiter,
   validate(resetPasswordTokenSchema, 'params'),
   validate(resetPasswordSchema, 'body'),
   resetPasswordHandler,
@@ -339,6 +352,7 @@ router.patch(
 router.patch(
   '/update-password',
   protect,
+  authLimiter,
   validate(updatePasswordSchema, 'body'),
   updatePasswordHandler,
 );
@@ -435,12 +449,17 @@ router.get('/me', protect, checkAuthHandler);
  *       400:
  *         description: Invalid authorization code
  */
-router.post('/google', validate(googleAuthSchema, 'body'), googleAuthHandler);
+router.post(
+  '/google',
+  authLimiter,
+  validate(googleAuthSchema, 'body'),
+  googleAuthHandler,
+);
 
 /**
  * @swagger
  * /auth/logout:
- *   get:
+ *   post:
  *     summary: Logout user
  *     tags: [Authentication]
  *     description: Clear authentication cookie and logout user
@@ -459,6 +478,6 @@ router.post('/google', validate(googleAuthSchema, 'body'), googleAuthHandler);
  *                   type: string
  *                   example: Logged out successfully
  */
-router.get('/logout', logoutHandler);
+router.post('/logout', logoutHandler);
 
 export default router;

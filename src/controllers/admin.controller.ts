@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import { literalRegex } from '../utils/regex.util.js';
 import catchAsync from '../utils/catchAsync.util.js';
 import * as userService from '../services/user.service.js';
 import * as moderationService from '../services/moderation.service.js';
@@ -112,9 +113,9 @@ export const getPromptsAdminHandler = catchAsync(
     if (flaggedOnly) filter.flaggedCount = { $gt: 0 };
     if (search) {
       filter.$or = [
-        { title: { $regex: search, $options: 'i' } },
-        { promptText: { $regex: search, $options: 'i' } },
-        { description: { $regex: search, $options: 'i' } },
+        { title: literalRegex(search) },
+        { promptText: literalRegex(search) },
+        { description: literalRegex(search) },
       ];
     }
 

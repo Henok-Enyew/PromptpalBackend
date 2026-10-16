@@ -52,10 +52,6 @@
  *           type: boolean
  *           default: false
  *           description: Email verification status
- *         isPhoneVerified:
- *           type: boolean
- *           default: false
- *           description: Phone verification status
  *         googleId:
  *           type: string
  *           description: Google OAuth ID
@@ -154,10 +150,6 @@ const userSchema = new Schema<IUserDocument>(
       type: Boolean,
       default: false,
     },
-    isPhoneVerified: {
-      type: Boolean,
-      default: false,
-    },
     active: {
       type: Boolean,
       default: true,
@@ -176,14 +168,6 @@ const userSchema = new Schema<IUserDocument>(
       select: false,
     },
     emailVerificationTokenExpires: {
-      type: Date,
-      select: false,
-    },
-    phoneOtp: {
-      type: String,
-      select: false,
-    },
-    phoneOtpExpires: {
       type: Date,
       select: false,
     },
@@ -275,13 +259,6 @@ userSchema.methods.createEmailVerificationToken = function (): string {
     Date.now() + 24 * 60 * 60 * 1000,
   );
   return verificationToken;
-};
-
-userSchema.methods.createPhoneOtp = function (): string {
-  const otp = Math.floor(100000 + Math.random() * 900000).toString();
-  this.phoneOtp = crypto.createHash('sha256').update(otp).digest('hex');
-  this.phoneOtpExpires = new Date(Date.now() + 5 * 60 * 1000);
-  return otp;
 };
 
 userSchema.methods.createPasswordResetToken = function (): string {

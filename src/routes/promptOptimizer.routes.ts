@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { protect } from '../middleware/auth.middleware.js';
+import { aiLimiter } from '../middleware/rateLimit.middleware.js';
 import { validate } from '../middleware/validate.middleware.js';
 import { upload } from '../utils/fileUpload.util.js';
 import * as promptOptimizerController from '../controllers/promptOptimizer.controller.js';
@@ -136,20 +137,13 @@ const router = Router();
  *                 message:
  *                   type: string
  *                   example: "Prompt is not acceptable for optimization."
- *                         improvements:
- *                           type: array
- *                           items:
- *                             type: string
- *                         note:
- *                           type: string
- *       400:
- *         description: Bad request - validation error
  *       401:
  *         description: Unauthorized - valid JWT cookie required
  */
 router.post(
   '/quick-optimize',
   protect,
+  aiLimiter,
   validate(quickOptimizeSchema, 'body'),
   promptOptimizerController.quickOptimize,
 );
@@ -272,6 +266,7 @@ router.post(
 router.post(
   '/analyze',
   protect,
+  aiLimiter,
   validate(analyzePromptSchema, 'body'),
   promptOptimizerController.analyzePrompt,
 );
@@ -404,6 +399,7 @@ router.post(
 router.post(
   '/build',
   protect,
+  aiLimiter,
   validate(buildPromptSchema, 'body'),
   promptOptimizerController.buildPrompt,
 );

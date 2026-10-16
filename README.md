@@ -20,7 +20,7 @@ Prompt Pal Backend is the API layer for a prompt-sharing platform. It handles au
 - Swagger/OpenAPI docs
 - Cloudinary for media uploads
 - Brevo or Mailtrap for email
-- Google Gemini for prompt optimization
+- Groq (Llama) and Google Gemini for prompt optimization
 
 ## Quick Start
 
@@ -48,15 +48,24 @@ PORT=3000
 DATABASE_URL=<mongodb-connection-string>
 DATABASE_PASSWORD=<mongodb-password>
 JWT_SECRET=<jwt-secret>
-JWT_EXPIRES_IN=90d
+JWT_EXPIRES_IN=7776000   # seconds, or a duration such as 90d
 EMAIL_FROM=<sender-email>
 ```
 
 Common optional variables:
 
 ```env
-CORS_ORIGIN=http://localhost:3000
-CLIENT_URL=http://localhost:3000
+CORS_ORIGIN=http://localhost:5173        # comma-separated; also used for the CSRF Origin check
+CLIENT_URL=http://localhost:5173
+
+# Cookies and proxies
+COOKIE_SAMESITE=lax        # 'none' only while the frontend calls the Render domain directly
+TRUST_PROXY_HOPS=1         # Render = 1; behind the Vercel /api rewrite = 2
+
+# Rate limits (requests per window)
+RATE_LIMIT_GLOBAL_MAX=300  # per IP per 15 min, all /api routes
+RATE_LIMIT_AUTH_MAX=10     # failed auth attempts per IP per 15 min
+RATE_LIMIT_AI_MAX=30       # LLM calls per user per hour
 
 CLOUDINARY_CLOUD_NAME=<cloud-name>
 CLOUDINARY_API_KEY=<api-key>
@@ -76,10 +85,13 @@ GOOGLE_CLIENT_ID=<google-client-id>
 GOOGLE_CLIENT_SECRET=<google-client-secret>
 GOOGLE_REDIRECT_URI=postmessage
 
+AI_PROVIDER=auto           # groq | gemini | auto (prefers Groq)
+GROQ_API_KEY=<groq-api-key>
+GROQ_MODEL=llama-3.3-70b-versatile
 GOOGLE_AI_API_KEY=<gemini-api-key>
 GEMINI_MODEL=gemini-2.5-flash
 OPTIMIZATION_TEMPERATURE=0.7
-OPTIMIZATION_MAX_TOKENS=2000
+OPTIMIZATION_MAX_TOKENS=4000
 
 SUPER_ADMIN_EMAIL=<admin-email>
 SUPER_ADMIN_PASSWORD=<admin-password>
@@ -106,11 +118,15 @@ pnpm dev
 pnpm build
 pnpm start
 pnpm lint
+pnpm typecheck
+pnpm test          # vitest + supertest against an in-memory MongoDB (never config.env's database)
+pnpm test:watch
 pnpm format
 pnpm seed:admin
 pnpm migrate:moderation
-pnpm test:endpoints
 ```
+
+The first `pnpm test` run downloads a MongoDB binary (~100 MB) for `mongodb-memory-server`.
 
 ## API Docs
 
@@ -124,7 +140,7 @@ pnpm test:endpoints
 src/
   config/        environment, database, logger, swagger
   controllers/   request handlers
-  middleware/    auth, validation, error handling
+  middleware/    auth, validation, rate limits, CSRF origin check, error handling
   models/        Mongoose models
   routes/        API route definitions
   services/      business logic
@@ -132,6 +148,7 @@ src/
   validation/    Zod schemas
   _migrations/   database migrations
   _seeder/       seed scripts
+  __tests__/     API tests (excluded from the build)
 ```
 
 ## Deployment

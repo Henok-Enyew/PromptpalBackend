@@ -4,7 +4,7 @@
  */
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import axios from 'axios';
-import '../config/env.config.js';
+import config from '../config/env.config.js';
 import logger from '../config/logger.config.js';
 
 export type AIProvider = 'gemini' | 'groq';
@@ -18,15 +18,15 @@ let groqApiKey: string | null = null;
 let groqModelName = 'llama-3.3-70b-versatile';
 let activeProvider: AIProvider | null = null;
 
-const temperature = parseFloat(process.env.OPTIMIZATION_TEMPERATURE || '0.7');
-const maxTokens = parseInt(process.env.OPTIMIZATION_MAX_TOKENS || '4000', 10);
+const temperature = config.gemini.temperature ?? 0.7;
+const maxTokens = config.gemini.maxTokens ?? 4000;
 
 /**
  * Resolve which provider to use: AI_PROVIDER=groq|gemini|auto
  * auto prefers Groq when configured, otherwise Gemini
  */
 function resolveProvider(): AIProvider | null {
-  const preferred = (process.env.AI_PROVIDER || 'auto').toLowerCase();
+  const preferred = config.aiProvider.toLowerCase();
   const hasGroq = Boolean(groqApiKey);
   const hasGemini = geminiModel !== null;
 
@@ -46,7 +46,7 @@ function resolveProvider(): AIProvider | null {
  * Initialize Gemini client
  */
 function initializeGeminiClient() {
-  const apiKey = process.env.GOOGLE_AI_API_KEY;
+  const apiKey = config.gemini.apiKey;
 
   if (!apiKey) {
     logger.warn('GOOGLE_AI_API_KEY not set. Gemini features will be disabled.');
@@ -55,7 +55,7 @@ function initializeGeminiClient() {
 
   try {
     genAI = new GoogleGenerativeAI(apiKey);
-    const modelName = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+    const modelName = config.gemini.model || 'gemini-2.5-flash';
 
     geminiModel = genAI.getGenerativeModel({
       model: modelName,
@@ -75,7 +75,7 @@ function initializeGeminiClient() {
  * Initialize Groq client (OpenAI-compatible chat completions)
  */
 function initializeGroqClient() {
-  const apiKey = process.env.GROQ_API_KEY;
+  const apiKey = config.groq.apiKey;
 
   if (!apiKey) {
     logger.warn('GROQ_API_KEY not set. Groq features will be disabled.');
@@ -83,7 +83,7 @@ function initializeGroqClient() {
   }
 
   groqApiKey = apiKey;
-  groqModelName = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile';
+  groqModelName = config.groq.model || 'llama-3.3-70b-versatile';
   logger.info(`Groq initialized with model: ${groqModelName}`);
 }
 

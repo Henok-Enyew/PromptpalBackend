@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { protect } from '../middleware/auth.middleware.js';
+import { protect, optionalProtect } from '../middleware/auth.middleware.js';
 import * as commentController from '../controllers/comment.controller.js';
 import * as flagController from '../controllers/flag.controller.js';
 import { validate } from '../middleware/validate.middleware.js';
@@ -144,6 +144,7 @@ router.post(
  */
 router.get(
   '/',
+  optionalProtect,
   validate(getCommentsParamsSchema, 'params'),
   validate(getCommentsQuerySchema, 'query'),
   commentController.getComments,
@@ -192,6 +193,7 @@ router.get(
  */
 router.get(
   '/:commentId',
+  optionalProtect,
   validate(getCommentSchema, 'params'),
   commentController.getComment,
 );

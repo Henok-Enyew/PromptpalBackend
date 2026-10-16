@@ -54,7 +54,6 @@ export interface UserStats {
   };
   verified: {
     email: number;
-    phone: number;
   };
 }
 

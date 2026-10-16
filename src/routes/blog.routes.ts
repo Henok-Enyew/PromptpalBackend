@@ -1,7 +1,12 @@
 import { Router } from 'express';
-import { protect, optionalProtect } from '../middleware/auth.middleware.js';
+import {
+  protect,
+  optionalProtect,
+  restrictTo,
+} from '../middleware/auth.middleware.js';
 import * as blogController from '../controllers/blog.controller.js';
 import * as commentController from '../controllers/comment.controller.js';
+import { flagContentHandler } from '../controllers/flag.controller.js';
 import { validate } from '../middleware/validate.middleware.js';
 import {
   createBlogSchema,
@@ -24,6 +29,9 @@ import {
 } from '../utils/blogImageUpload.util.js';
 
 const router = Router();
+
+// The blog is an editorially controlled Playbook: only admins write to it.
+const editorOnly = restrictTo('admin', 'superadmin');
 
 /**
  * @swagger
@@ -79,6 +87,7 @@ const router = Router();
 router.post(
   '/upload/cover',
   protect,
+  editorOnly,
   uploadBlogCover.single('image'),
   blogController.uploadCoverImage,
 );
@@ -130,6 +139,7 @@ router.post(
 router.post(
   '/upload/section',
   protect,
+  editorOnly,
   uploadBlogSection.single('image'),
   blogController.uploadSectionImage,
 );
@@ -520,6 +530,7 @@ router.get('/', validate(blogQuerySchema, 'query'), blogController.getBlogs);
 router.post(
   '/',
   protect,
+  editorOnly,
   validate(createBlogSchema, 'body'),
   blogController.createBlog,
 );
@@ -674,6 +685,7 @@ router.get(
 router.patch(
   '/:id',
   protect,
+  editorOnly,
   validate(blogIdSchema, 'params'),
   validate(updateBlogSchema, 'body'),
   blogController.updateBlog,
@@ -706,6 +718,7 @@ router.patch(
 router.delete(
   '/:id',
   protect,
+  editorOnly,
   validate(blogIdSchema, 'params'),
   blogController.deleteBlog,
 );
@@ -741,6 +754,7 @@ router.delete(
 router.post(
   '/:id/sections',
   protect,
+  editorOnly,
   validate(blogIdSchema, 'params'),
   validate(addSectionSchema, 'body'),
   blogController.addSection,
@@ -788,6 +802,7 @@ router.post(
 router.patch(
   '/:id/sections/reorder',
   protect,
+  editorOnly,
   validate(blogIdSchema, 'params'),
   validate(reorderSectionsSchema, 'body'),
   blogController.reorderSections,
@@ -840,6 +855,7 @@ router.patch(
 router.patch(
   '/:id/sections/:sectionId',
   protect,
+  editorOnly,
   validate(sectionIdSchema, 'params'),
   validate(updateSectionSchema, 'body'),
   blogController.updateSection,
@@ -872,6 +888,7 @@ router.patch(
 router.delete(
   '/:id/sections/:sectionId',
   protect,
+  editorOnly,
   validate(sectionIdSchema, 'params'),
   blogController.deleteSection,
 );
@@ -995,10 +1012,7 @@ router.post(
     req.body.contentId = req.params.id;
     next();
   },
-  (req, res, next) => {
-    const flagController = require('../controllers/flag.controller.js');
-    return flagController.flagContentHandler(req, res, next);
-  },
+  flagContentHandler,
 );
 
 /**

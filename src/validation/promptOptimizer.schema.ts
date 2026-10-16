@@ -1,9 +1,7 @@
 import { z } from 'zod';
 import mongoose from 'mongoose';
-import { sanitizeInput } from '../utils/sanitize.util.js';
+import { trimAndSanitize, trimOnly } from '../utils/sanitize.util.js';
 
-const trimAndSanitize = (input: unknown) =>
-  typeof input === 'string' ? sanitizeInput(input.trim()) : input;
 
 const objectIdSchema = z.string().refine(
   (val) => {
@@ -18,7 +16,7 @@ export const quickOptimizeSchema = z.object({
     .string()
     .min(1, 'Prompt cannot be empty.')
     .max(5000, 'Prompt cannot exceed 5000 characters.')
-    .transform(trimAndSanitize),
+    .transform(trimOnly),
   targetModel: z
     .string()
     .min(1, 'Target model is required.')
@@ -33,7 +31,7 @@ export const analyzePromptSchema = z.object({
     .string()
     .min(5, 'Prompt must be at least 5 characters.')
     .max(5000, 'Prompt cannot exceed 5000 characters.')
-    .transform(trimAndSanitize),
+    .transform(trimOnly),
   targetModel: z
     .string()
     .min(1, 'Target model is required.')
@@ -55,7 +53,7 @@ export const buildPromptSchema = z.object({
     .string()
     .min(5, 'Prompt must be at least 5 characters.')
     .max(5000, 'Prompt cannot exceed 5000 characters.')
-    .transform(trimAndSanitize),
+    .transform(trimOnly),
   targetModel: z
     .string()
     .min(1, 'Target model is required.')
@@ -66,7 +64,7 @@ export const buildPromptSchema = z.object({
   additionalDetails: z
     .string()
     .max(2000, 'Additional details cannot exceed 2000 characters.')
-    .transform(trimAndSanitize)
+    .transform(trimOnly)
     .optional(),
 });
 

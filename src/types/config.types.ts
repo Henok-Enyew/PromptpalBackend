@@ -59,6 +59,12 @@ interface GroqConfig {
   model?: string;
 }
 
+interface RateLimitConfig {
+  globalMax: number;
+  authMax: number;
+  aiMax: number;
+}
+
 export interface AppConfig {
   nodeEnv: 'development' | 'production' | 'test';
   isProduction: boolean;
@@ -78,6 +84,9 @@ export interface AppConfig {
   googleOAuth: GoogleOAuthConfig;
   gemini: GeminiConfig;
   groq: GroqConfig;
+  trustProxyHops: number;
+  rateLimit: RateLimitConfig;
+  cookieSameSite: 'lax' | 'strict' | 'none';
   aiProvider: string;
   superAdmin: SuperAdminConfig;
 }

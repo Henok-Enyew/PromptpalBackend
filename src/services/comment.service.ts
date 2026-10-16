@@ -1,5 +1,5 @@
 import Comment from '../models/comment.model.js';
-import Prompt from '../models/prompt.model.js';
+import { PUBLIC_AUTHOR_FIELDS } from '../utils/user.util.js';
 import BlogPost from '../models/blog.model.js';
 import AppError from '../utils/appError.util.js';
 import {
@@ -8,6 +8,10 @@ import {
   GetCommentsQuery,
 } from '../validation/comment.schema.js';
 import { ContentType } from '../types/comment.types.js';
+import {
+  findAccessiblePrompt,
+  PromptRequester,
+} from './prompt.service.js';
 
 /**
  * Create a comment on any content (prompt or blog)
@@ -17,13 +21,11 @@ export const createComment = async (
   contentType: ContentType,
   userId: string,
   input: CreateCommentInput,
+  requester?: PromptRequester,
 ) => {
-  // Verify content exists
+  // Verify content exists and is visible to the commenter
   if (contentType === 'prompt') {
-    const prompt = await Prompt.findById(contentId);
-    if (!prompt || prompt.isDeleted) {
-      throw new AppError('Prompt not found.', 404);
-    }
+    await findAccessiblePrompt(contentId, requester ?? { _id: userId });
   } else if (contentType === 'blog') {
     const blog = await BlogPost.findById(contentId);
     if (!blog || blog.isDeleted) {
@@ -42,7 +44,7 @@ export const createComment = async (
 
   await comment.populate({
     path: 'user',
-    select: 'firstName lastName email profileImage',
+    select: PUBLIC_AUTHOR_FIELDS,
   });
 
   return comment;
@@ -55,13 +57,11 @@ export const getCommentsByContent = async (
   contentId: string,
   contentType: ContentType,
   query: GetCommentsQuery,
+  requester?: PromptRequester,
 ) => {
-  // Verify content exists
+  // Verify content exists and is visible to the requester
   if (contentType === 'prompt') {
-    const prompt = await Prompt.findById(contentId);
-    if (!prompt) {
-      throw new AppError('Prompt not found.', 404);
-    }
+    await findAccessiblePrompt(contentId, requester);
   } else if (contentType === 'blog') {
     const blog = await BlogPost.findById(contentId);
     if (!blog) {
@@ -80,7 +80,7 @@ export const getCommentsByContent = async (
   })
     .populate({
       path: 'user',
-      select: 'firstName lastName email profileImage',
+      select: PUBLIC_AUTHOR_FIELDS,
     })
     .sort({ createdAt: -1 })
     .skip(skip)
@@ -106,17 +106,21 @@ export const getCommentsByContent = async (
 export const getCommentsByPrompt = async (
   promptId: string,
   query: GetCommentsQuery,
+  requester?: PromptRequester,
 ) => {
-  return getCommentsByContent(promptId, 'prompt', query);
+  return getCommentsByContent(promptId, 'prompt', query, requester);
 };
 
-export const getCommentById = async (commentId: string) => {
+export const getCommentById = async (
+  commentId: string,
+  requester?: PromptRequester,
+) => {
   const comment = await Comment.findOne({
     _id: commentId,
     isDeleted: false,
   }).populate({
     path: 'user',
-    select: 'firstName lastName email profileImage',
+    select: PUBLIC_AUTHOR_FIELDS,
   });
 
   if (!comment) {
@@ -125,6 +129,15 @@ export const getCommentById = async (commentId: string) => {
 
   if (comment.isHidden) {
     throw new AppError('Comment not found.', 404);
+  }
+
+  // Comments on a private prompt are as private as the prompt itself.
+  if (comment.contentType === 'prompt') {
+    try {
+      await findAccessiblePrompt(String(comment.contentId), requester);
+    } catch {
+      throw new AppError('Comment not found.', 404);
+    }
   }
 
   return comment;
@@ -157,7 +170,7 @@ export const updateComment = async (
 
   await comment.populate({
     path: 'user',
-    select: 'firstName lastName email profileImage',
+    select: PUBLIC_AUTHOR_FIELDS,
   });
 
   return comment;
@@ -217,7 +230,7 @@ export const toggleCommentLike = async (commentId: string, userId: string) => {
 
   await comment.populate({
     path: 'user',
-    select: 'firstName lastName email profileImage',
+    select: PUBLIC_AUTHOR_FIELDS,
   });
 
   return comment;

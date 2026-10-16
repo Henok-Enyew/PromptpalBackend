@@ -70,9 +70,11 @@ export const globalErrorHandler = (
   if (error.name === 'JsonWebTokenError') error = handleJWTError();
   if (error.name === 'TokenExpiredError') error = handleJWTExpiredError();
 
+  // Any env other than development (production, test, staging) must still
+  // respond, and must never leak stacks.
   if (config.nodeEnv === 'development') {
     sendErrorDev(error, res);
-  } else if (config.nodeEnv === 'production') {
+  } else {
     sendErrorProd(error, res);
   }
 };

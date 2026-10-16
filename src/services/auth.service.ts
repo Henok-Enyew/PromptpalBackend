@@ -321,7 +321,6 @@ export const googleAuth = async (code: string) => {
       googleId: payload.sub,
       profileImage: payload.picture,
       isEmailVerified: true,
-      isPhoneVerified: false,
       status: 'pending',
     });
   }

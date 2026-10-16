@@ -12,6 +12,15 @@ export const validate =
 
       if (part === 'body') {
         req.body = validated;
+      } else {
+        // Express 5 exposes req.query/req.params via getters; redefine them so
+        // controllers receive zod's parsed values (numbers, defaults, trims).
+        Object.defineProperty(req, part, {
+          value: validated,
+          writable: true,
+          enumerable: true,
+          configurable: true,
+        });
       }
 
       next();

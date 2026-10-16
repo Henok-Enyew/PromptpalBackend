@@ -1,9 +1,52 @@
 import Prompt from '../models/prompt.model.js';
+import { PUBLIC_AUTHOR_FIELDS } from '../utils/user.util.js';
 import AppError from '../utils/appError.util.js';
 import { CreatePromptInput, UpdatePromptInput, FeedQueryParams } from '../validation/prompt.schema.js';
 import { cloudinary } from '../utils/cloudinary.util.js';
 import logger from '../config/logger.config.js';
 import Comment from '../models/comment.model.js';
+import { literalRegex } from '../utils/regex.util.js';
+
+/** The subset of the authenticated user that access checks need. */
+export type PromptRequester = { _id: unknown; role?: string } | undefined;
+
+const isAdmin = (requester: PromptRequester) =>
+  requester?.role === 'admin' || requester?.role === 'superadmin';
+
+/**
+ * Mongo filter for prompts the requester is allowed to see: public and not
+ * hidden, or owned by the requester; admins see everything that isn't deleted.
+ * Every read of a prompt (or of anything nested under one) must use this.
+ */
+export const buildPromptAccessFilter = (requester?: PromptRequester) => {
+  if (isAdmin(requester)) return { isDeleted: false };
+
+  const visibleToAll = { isPublic: true, isHidden: false };
+  if (!requester) return { isDeleted: false, ...visibleToAll };
+
+  return {
+    isDeleted: false,
+    $or: [visibleToAll, { user: requester._id }],
+  };
+};
+
+/**
+ * Load a prompt the requester may see, or throw 404. Unauthorized and missing
+ * prompts are indistinguishable on purpose.
+ */
+export const findAccessiblePrompt = async (
+  promptId: string,
+  requester?: PromptRequester,
+) => {
+  const prompt = await Prompt.findOne({
+    _id: promptId,
+    ...buildPromptAccessFilter(requester),
+  });
+  if (!prompt) {
+    throw new AppError('Prompt not found.', 404);
+  }
+  return prompt;
+};
 
 export const createPrompt = async (
   userId: string,
@@ -56,7 +99,7 @@ export const createPrompt = async (
   
   await prompt.populate({
     path: 'user',
-    select: 'firstName lastName email profileImage',
+    select: PUBLIC_AUTHOR_FIELDS,
   });
 
   return prompt;
@@ -76,7 +119,7 @@ export const getFeed = async (query: FeedQueryParams) => {
   }
 
   if (aiModel) {
-    filter.aiModel = { $regex: aiModel, $options: 'i' };
+    filter.aiModel = literalRegex(String(aiModel));
   }
 
   if (search) {
@@ -88,7 +131,7 @@ export const getFeed = async (query: FeedQueryParams) => {
   let queryBuilder = Prompt.find(filter)
     .populate({
       path: 'user',
-      select: 'firstName lastName email profileImage',
+      select: PUBLIC_AUTHOR_FIELDS,
     })
     .sort({ createdAt: -1 })
     .skip(skip)
@@ -141,30 +184,31 @@ export const getFeed = async (query: FeedQueryParams) => {
   };
 };
 
-export const getPromptById = async (promptId: string, includeComments = false) => {
-  const prompt = await Prompt.findOne({
-    _id: promptId,
-    isDeleted: false,
-  }).populate({
+export const getPromptById = async (
+  promptId: string,
+  requester?: PromptRequester,
+) => {
+  const prompt = await Prompt.findOneAndUpdate(
+    { _id: promptId, ...buildPromptAccessFilter(requester) },
+    { $inc: { views: 1 } },
+    { new: true },
+  ).populate({
     path: 'user',
-    select: 'firstName lastName email profileImage',
+    select: PUBLIC_AUTHOR_FIELDS,
   });
 
   if (!prompt) {
     throw new AppError('Prompt not found.', 404);
   }
 
-  if (prompt.isHidden && !includeComments) {
-    throw new AppError('Prompt not found.', 404);
-  }
-
-  prompt.views += 1;
-  await prompt.save();
-
   // Add likesCount, commentCount, and sharesCount
   const promptObj = prompt.toObject();
-  const commentCount = await Comment.countDocuments({ prompt: promptId });
-  
+  const commentCount = await Comment.countDocuments({
+    prompt: promptId,
+    isDeleted: false,
+    isHidden: false,
+  });
+
   return {
     ...promptObj,
     likesCount: prompt.likes?.length || 0,
@@ -246,7 +290,7 @@ export const updatePrompt = async (
 
   await prompt.populate({
     path: 'user',
-    select: 'firstName lastName email profileImage',
+    select: PUBLIC_AUTHOR_FIELDS,
   });
 
   return prompt;
@@ -299,12 +343,12 @@ export const deletePrompt = async (
   return { message: 'Prompt deleted successfully.' };
 };
 
-export const toggleLike = async (promptId: string, userId: string) => {
-  const prompt = await Prompt.findById(promptId);
-
-  if (!prompt) {
-    throw new AppError('Prompt not found.', 404);
-  }
+export const toggleLike = async (
+  promptId: string,
+  requester: NonNullable<PromptRequester>,
+) => {
+  const prompt = await findAccessiblePrompt(promptId, requester);
+  const userId = String(requester._id);
 
   const likeIndex = prompt.likes.findIndex(
     (id) => id.toString() === userId.toString(),
@@ -320,15 +364,18 @@ export const toggleLike = async (promptId: string, userId: string) => {
 
   await prompt.populate({
     path: 'user',
-    select: 'firstName lastName email profileImage',
+    select: PUBLIC_AUTHOR_FIELDS,
   });
 
   return prompt;
 };
 
-export const incrementShare = async (promptId: string) => {
-  const prompt = await Prompt.findByIdAndUpdate(
-    promptId,
+export const incrementShare = async (
+  promptId: string,
+  requester?: PromptRequester,
+) => {
+  const prompt = await Prompt.findOneAndUpdate(
+    { _id: promptId, ...buildPromptAccessFilter(requester) },
     { $inc: { shares: 1 } },
     { new: true },
   );
@@ -363,7 +410,7 @@ export const getUserPrompts = async (
   }
 
   if (aiModel) {
-    filter.aiModel = { $regex: aiModel, $options: 'i' };
+    filter.aiModel = literalRegex(String(aiModel));
   }
 
   if (search) {
@@ -375,7 +422,7 @@ export const getUserPrompts = async (
   let queryBuilder = Prompt.find(filter)
     .populate({
       path: 'user',
-      select: 'firstName lastName email profileImage',
+      select: PUBLIC_AUTHOR_FIELDS,
     })
     .sort({ createdAt: -1 })
     .skip(skip)
@@ -436,8 +483,7 @@ export const getUserFavorites = async (
 
   const filter: any = {
     likes: userId,
-    isDeleted: false,
-    isHidden: false,
+    ...buildPromptAccessFilter({ _id: userId }),
   };
 
   if (tag) {
@@ -445,7 +491,7 @@ export const getUserFavorites = async (
   }
 
   if (aiModel) {
-    filter.aiModel = { $regex: aiModel, $options: 'i' };
+    filter.aiModel = literalRegex(String(aiModel));
   }
 
   if (search) {
@@ -457,7 +503,7 @@ export const getUserFavorites = async (
   let queryBuilder = Prompt.find(filter)
     .populate({
       path: 'user',
-      select: 'firstName lastName email profileImage',
+      select: PUBLIC_AUTHOR_FIELDS,
     })
     .sort({ createdAt: -1 })
     .skip(skip)

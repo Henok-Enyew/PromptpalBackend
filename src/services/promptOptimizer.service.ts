@@ -1,4 +1,6 @@
 import PromptOptimization from '../models/promptOptimization.model.js';
+import { PUBLIC_AUTHOR_FIELDS } from '../utils/user.util.js';
+import { literalRegex } from '../utils/regex.util.js';
 import AppError from '../utils/appError.util.js';
 import {
   QuickOptimizeInput,
@@ -444,7 +446,7 @@ export const buildPremiumPrompt = async (
   const { originalPrompt, targetModel, mediaType, answers, additionalDetails } = input;
 
   // Find existing optimization or create new one
-  let optimization = await PromptOptimization.findOne({
+  const optimization = await PromptOptimization.findOne({
     user: userId,
     originalPrompt,
     targetModel,
@@ -721,7 +723,7 @@ export const getOptimizationHistory = async (
   };
 
   if (targetModel) {
-    filter.targetModel = { $regex: targetModel, $options: 'i' };
+    filter.targetModel = literalRegex(String(targetModel));
   }
 
   if (optimizationType) {
@@ -890,7 +892,7 @@ export const applyOptimization = async (
 
   await prompt.populate({
     path: 'user',
-    select: 'firstName lastName email profileImage',
+    select: PUBLIC_AUTHOR_FIELDS,
   });
 
   return prompt;

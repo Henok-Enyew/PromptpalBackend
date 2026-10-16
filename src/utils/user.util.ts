@@ -1,5 +1,11 @@
 import { IUserDocument, PublicUserProfile } from '../types/user.types.js';
 
+/**
+ * Fields that may be shown about a user to anyone else (authors of prompts,
+ * comments, blog posts). Never add email, phone number or auth fields here.
+ */
+export const PUBLIC_AUTHOR_FIELDS = 'firstName lastName profileImage';
+
 export const sanitizeUserForResponse = (
   user: IUserDocument,
 ): PublicUserProfile => {
@@ -14,7 +20,6 @@ export const sanitizeUserForResponse = (
     status: user.status,
     profileImage: user.profileImage,
     isEmailVerified: user.isEmailVerified,
-    isPhoneVerified: user.isPhoneVerified,
     createdAt: user.createdAt,
   };
 };
