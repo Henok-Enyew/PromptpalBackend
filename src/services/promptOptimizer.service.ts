@@ -17,7 +17,8 @@ import {
   quickOptimizeWithAI,
 } from '../utils/gemini.util.js';
 import { validateIntentPreservation } from '../utils/intentPreservation.util.js';
-import { calculateComprehensiveQualityScore } from '../utils/qualityScoring.util.js';
+import { lintPrompt } from '../utils/promptLint.util.js';
+import { LLMError } from '../services/llm/types.js';
 import Prompt from '../models/prompt.model.js';
 import { CreatePromptInput } from '../validation/prompt.schema.js';
 import { ApplyOptimizationInput, FeedbackInput } from '../validation/promptOptimizer.schema.js';
@@ -29,9 +30,12 @@ import {
 } from '../utils/cache.util.js';
 import logger from '../config/logger.config.js';
 
+const wordCountOf = (text: string) => text.trim().split(/\s+/).filter(Boolean).length;
+
 /**
- * Quick optimization - AI-powered optimization following prompt engineering best practices
- * AI optimization is required - no fallback to rule-based optimization
+ * Quick optimization: the model returns a structured diagnosis and a
+ * rewrite. We add deterministic lint checks for both versions. No score is
+ * reported; to compare versions, benchmark them in the workbench.
  */
 export const quickOptimize = async (
   userId: string,
@@ -40,10 +44,7 @@ export const quickOptimize = async (
   const { originalPrompt, targetModel, mediaType } = input;
   const promptText = originalPrompt as string;
 
-  // Pre-validate the prompt
   const preValidation = preValidatePrompt(promptText);
-  
-  // If prompt is completely unacceptable, throw error
   if (!preValidation.isAcceptable) {
     throw new AppError(
       preValidation.validationMessage || 'Prompt is not acceptable for optimization.',
@@ -51,186 +52,36 @@ export const quickOptimize = async (
     );
   }
 
-  // Analyze the original prompt for comparison
-  const originalAnalysis = analyzePrompt(promptText, mediaType);
-
-  let optimizedPrompt: string = promptText;
-  let aiOptimizationResult: any = null;
-  let usedAI = false;
-  let validationMessage: string | undefined = preValidation.validationMessage;
-  let improvements: string[] = [];
-
-  // AI optimization is required - no fallback to rule-based
   if (!isGeminiAvailable()) {
-    logger.error('Gemini is not available. AI optimization is required.');
+    logger.error('No AI provider is configured; quick optimization is unavailable.');
     throw new AppError(
       'AI optimization service is currently unavailable. Please try again later or contact support if the issue persists.',
       503,
     );
   }
 
+  let result: Awaited<ReturnType<typeof quickOptimizeWithAI>>;
   try {
-    logger.info(
-      {
-        userId,
-        originalPrompt: promptText,
-        targetModel,
-        mediaType,
-      },
-      'Attempting AI optimization',
-    );
-
-    aiOptimizationResult = await quickOptimizeWithAI(
-      promptText,
-      targetModel as string,
-      mediaType,
-    );
-    
-    logger.info(
-      {
-        userId,
-        aiResult: {
-          optimizedPrompt: aiOptimizationResult.optimizedPrompt?.substring(0, 100),
-          isValid: aiOptimizationResult.isValid,
-          improvementsCount: aiOptimizationResult.improvements?.length || 0,
-          qualityScore: aiOptimizationResult.qualityScore,
-        },
-      },
-      'AI optimization completed successfully',
-    );
-    
-    optimizedPrompt = aiOptimizationResult.optimizedPrompt;
-    usedAI = true;
-    improvements = aiOptimizationResult.improvements || [];
-    
-    // Use AI's validation message if provided
-    if (aiOptimizationResult.validationMessage) {
-      validationMessage = aiOptimizationResult.validationMessage;
-    }
-
-    // If AI says prompt is invalid, throw error
-    if (!aiOptimizationResult.isValid) {
-      throw new AppError(
-        aiOptimizationResult.validationMessage || 'Prompt is not valid for optimization.',
-        400,
-      );
-    }
-
-    logger.info(
-      {
-        userId,
-        originalLength: promptText.length,
-        optimizedLength: optimizedPrompt.length,
-        qualityScore: aiOptimizationResult.qualityScore,
-        improvementsCount: improvements.length,
-      },
-      'Quick optimization completed using AI',
-    );
+    result = await quickOptimizeWithAI(promptText, targetModel as string, mediaType);
   } catch (error: any) {
-    // Log detailed error information
-    logger.error(
-      {
-        userId,
-        originalPrompt: promptText,
-        errorMessage: error.message,
-        errorStack: error.stack,
-        errorName: error.name,
-        isAppError: error instanceof AppError,
-      },
-      'AI optimization failed',
-    );
-    
-    // If it's a validation error, throw it as-is
-    if (error instanceof AppError) {
-      throw error;
+    logger.error({ userId, errorMessage: error.message, code: error.code }, 'AI optimization failed');
+    if (error instanceof LLMError && error.code === 'rate_limited') {
+      throw new AppError('The AI provider is rate limiting requests. Please try again in a minute.', 429);
     }
-    
-    // For technical errors, provide user-friendly message
     throw new AppError(
       'Failed to optimize prompt. The AI service encountered an error. Please try again in a moment. If the problem persists, contact support.',
       503,
     );
   }
 
-  // AI optimization is required - if we reach here without usedAI, something went wrong
-  if (!usedAI) {
-    logger.error('AI optimization failed but no error was thrown. This should not happen.');
-    throw new AppError(
-      'Failed to optimize prompt. Please try again.',
-      500,
-    );
+  if (!result.isValid) {
+    throw new AppError(result.validationMessage || 'Prompt is not valid for optimization.', 400);
   }
 
-  // Analyze the optimized prompt
-  const optimizedAnalysis = analyzePrompt(optimizedPrompt, mediaType);
+  const optimizedPrompt = result.rewrittenPrompt;
+  const validationMessage = result.validationMessage || preValidation.validationMessage || undefined;
 
-  // Calculate quality scores
-  const beforeScore = Math.round(
-    (originalAnalysis.clarityScore +
-      originalAnalysis.specificityScore +
-      originalAnalysis.structureScore) /
-      3,
-  );
-
-  // Calculate quality score from AI optimization
-  // AI is required, so we should always have aiOptimizationResult here
-  if (!aiOptimizationResult) {
-    logger.error('AI optimization result is missing. This should not happen.');
-    throw new AppError('Failed to optimize prompt. Please try again.', 500);
-  }
-
-  // Use AI's quality score, but ensure it doesn't decrease
-  const aiScore = aiOptimizationResult.qualityScore;
-  let afterScore = Math.max(beforeScore, aiScore);
-  
-  // If AI made improvements but score is same, give a small boost
-  if (aiOptimizationResult.improvements && aiOptimizationResult.improvements.length > 0 && afterScore === beforeScore) {
-    afterScore = Math.min(100, beforeScore + 5);
-  }
-  
-  logger.info(
-    {
-      beforeScore,
-      aiScore,
-      finalAfterScore: afterScore,
-      aiImprovementsCount: aiOptimizationResult.improvements?.length || 0,
-    },
-    'Calculated quality score for AI optimization',
-  );
-
-  // Ensure improvements array is populated from AI
-  let finalImprovements = improvements;
-  
-  // AI is required, so we should always have improvements from AI
-  if (aiOptimizationResult && aiOptimizationResult.improvements && aiOptimizationResult.improvements.length > 0) {
-    finalImprovements = aiOptimizationResult.improvements;
-  } else if (finalImprovements.length === 0) {
-    // If AI didn't provide improvements, use a generic message
-    finalImprovements = ['Optimized prompt structure and clarity'];
-    logger.warn('AI optimization completed but no improvements were listed');
-  }
-
-  const qualityScore = {
-    before: beforeScore,
-    after: afterScore,
-    improvements: finalImprovements,
-    intentPreserved: true,
-  };
-
-  // Log metadata before creating record
-  logger.info(
-    {
-      userId,
-      usedAI,
-      improvementsCount: finalImprovements.length,
-      qualityScoreBefore: beforeScore,
-      qualityScoreAfter: afterScore,
-    },
-    'Creating optimization record',
-  );
-
-  // Create optimization record
-  const optimization = await PromptOptimization.create({
+  return PromptOptimization.create({
     user: userId,
     originalPrompt: promptText,
     optimizedPrompt,
@@ -239,37 +90,25 @@ export const quickOptimize = async (
     optimizationType: 'quick',
     optimizationMode: 'complete',
     status: 'completed',
-    qualityScore,
-    metadata: {
-      wordCount: {
-        before: originalAnalysis.wordCount,
-        after: optimizedAnalysis.wordCount,
-      },
-      clarityScore: {
-        before: originalAnalysis.clarityScore,
-        after: optimizedAnalysis.clarityScore,
-      },
-      specificityScore: {
-        before: originalAnalysis.specificityScore,
-        after: optimizedAnalysis.specificityScore,
-      },
-      structureScore: {
-        before: originalAnalysis.structureScore,
-        after: optimizedAnalysis.structureScore,
-      },
-      completenessScore: originalAnalysis.completenessScore,
-      usedAI: usedAI, // Explicitly set to ensure it's saved
-      validationMessage,
+    diagnosis: {
+      ambiguities: result.ambiguities,
+      roleDefinition: result.roleDefinition,
+      variables: result.variables,
+      formattingConstraints: result.formattingConstraints,
+      changes: result.changes,
     },
-    analysis: {
-      completenessScore: originalAnalysis.completenessScore,
-      missingElements: originalAnalysis.missingElements,
-      grammarFixed: originalAnalysis.grammarFixed,
-      structureImproved: originalAnalysis.structureImproved,
+    lintChecks: {
+      before: lintPrompt(promptText, mediaType),
+      after: lintPrompt(optimizedPrompt, mediaType),
+    },
+    metadata: {
+      wordCount: { before: wordCountOf(promptText), after: wordCountOf(optimizedPrompt) },
+      usedAI: true,
+      validationMessage,
+      model: result.model,
+      costUsd: result.costUsd,
     },
   });
-
-  return optimization;
 };
 
 /**
@@ -306,7 +145,7 @@ export const analyzePromptForQuestions = async (
       String(targetModel),
       mediaType,
     );
-    quickOptimized = quickOptimizeResult.optimizedPrompt;
+    quickOptimized = quickOptimizeResult.rewrittenPrompt;
     
     logger.info(
       {
@@ -518,36 +357,9 @@ export const buildPremiumPrompt = async (
     );
   }
 
-  // Calculate comprehensive quality scores
-  const comprehensiveScore = calculateComprehensiveQualityScore(
-    originalPrompt as string,
-    optimizedPrompt,
-    mediaType,
-    userAnswers,
-    additionalDetailsStr || undefined,
-  );
-
-  const beforeAnalysis = analyzePrompt(originalPrompt as string, mediaType);
-  const afterAnalysis = analyzePrompt(optimizedPrompt, mediaType);
-
-  const qualityScore = {
-    before: Math.round(
-      (beforeAnalysis.clarityScore +
-        beforeAnalysis.specificityScore +
-        beforeAnalysis.structureScore) /
-        3,
-    ),
-    after: comprehensiveScore.overall,
-    improvements: [
-      'Applied user preferences',
-      'Enhanced structure and clarity',
-      'Improved specificity',
-      ...(intentValidation.preserved ? [] : ['Intent preservation warnings detected']),
-    ],
-    intentPreserved: intentValidation.preserved,
-    intentPreservationScore: intentValidation.score,
-    comprehensive: comprehensiveScore,
-  };
+  // Heuristic: words in the result that the user never supplied. Shown as
+  // "check these" warnings, not as a score.
+  const intentWarnings = intentValidation.preserved ? [] : intentValidation.violations;
 
   // Update optimization record
   optimization.optimizedPrompt = optimizedPrompt;
@@ -555,25 +367,17 @@ export const buildPremiumPrompt = async (
   optimization.status = 'completed';
   optimization.userAnswers = userAnswers;
   optimization.additionalDetails = additionalDetailsStr || undefined;
-  optimization.qualityScore = qualityScore;
+  optimization.intentWarnings = intentWarnings;
+  optimization.lintChecks = {
+    before: lintPrompt(originalPrompt as string, mediaType),
+    after: lintPrompt(optimizedPrompt, mediaType),
+  };
   optimization.metadata = {
     wordCount: {
-      before: beforeAnalysis.wordCount,
-      after: afterAnalysis.wordCount,
+      before: wordCountOf(originalPrompt as string),
+      after: wordCountOf(optimizedPrompt),
     },
-    clarityScore: {
-      before: beforeAnalysis.clarityScore,
-      after: afterAnalysis.clarityScore,
-    },
-    specificityScore: {
-      before: beforeAnalysis.specificityScore,
-      after: afterAnalysis.specificityScore,
-    },
-    structureScore: {
-      before: beforeAnalysis.structureScore,
-      after: afterAnalysis.structureScore,
-    },
-    completenessScore: afterAnalysis.completenessScore,
+    usedAI: true,
   };
 
   // Update question answers
@@ -595,118 +399,6 @@ export const buildPremiumPrompt = async (
 
   return optimization;
 };
-
-/**
- * Get template questions (DEPRECATED - no longer used, AI is required)
- * Kept for reference but should not be called
- */
-function getTemplateQuestions(mediaType: 'text' | 'image' | 'video' | 'audio'): any {
-  if (mediaType === 'image') {
-    return {
-      questions: [
-        {
-          id: 'style',
-          question: 'What style do you prefer?',
-          type: 'select_or_text',
-          priority: 'high',
-          options: [
-            { value: 'photorealistic', label: 'Photorealistic' },
-            { value: 'cartoon', label: 'Cartoon/Illustration' },
-            { value: 'artistic', label: 'Artistic/Painting' },
-            { value: 'abstract', label: 'Abstract' },
-            { value: 'minimalist', label: 'Minimalist' },
-            { value: 'custom', label: 'Other (describe)', allowsTextInput: true },
-            { value: 'no_preference', label: 'No preference' },
-          ],
-          default: 'photorealistic',
-          required: false,
-        },
-        {
-          id: 'composition',
-          question: 'How should the subject be positioned?',
-          type: 'select_or_text',
-          priority: 'medium',
-          options: [
-            { value: 'centered', label: 'Centered' },
-            { value: 'rule_of_thirds', label: 'Rule of thirds' },
-            { value: 'close_up', label: 'Close-up' },
-            { value: 'full_body', label: 'Full body' },
-            { value: 'portrait', label: 'Portrait style' },
-            { value: 'custom', label: 'Other (describe)', allowsTextInput: true },
-            { value: 'no_preference', label: 'No preference' },
-          ],
-          default: 'centered',
-          required: false,
-        },
-        {
-          id: 'background',
-          question: 'What background do you want?',
-          type: 'select_or_text',
-          priority: 'medium',
-          options: [
-            { value: 'indoor', label: 'Indoor' },
-            { value: 'outdoor', label: 'Outdoor' },
-            { value: 'studio', label: 'Studio/Plain' },
-            { value: 'transparent', label: 'Transparent' },
-            { value: 'natural', label: 'Natural environment' },
-            { value: 'custom', label: 'Other (describe)', allowsTextInput: true },
-            { value: 'no_preference', label: 'No preference' },
-          ],
-          default: 'natural',
-          required: false,
-        },
-        {
-          id: 'quality',
-          question: 'What quality level?',
-          type: 'select',
-          priority: 'low',
-          options: [
-            { value: 'standard', label: 'Standard' },
-            { value: 'high', label: 'High quality' },
-            { value: 'professional', label: 'Professional/8K' },
-            { value: 'no_preference', label: 'No preference' },
-          ],
-          default: 'high',
-          required: false,
-        },
-      ],
-      additionalDetailsField: {
-        question: 'Any additional details you\'d like to include?',
-        type: 'textarea',
-        placeholder: 'E.g., colors, moods, specific details, references - Add anything else you want!',
-        required: false,
-      },
-    };
-  }
-
-  // Default template for text prompts
-  return {
-    questions: [
-      {
-        id: 'tone',
-        question: 'What tone do you prefer?',
-        type: 'select_or_text',
-        priority: 'high',
-        options: [
-          { value: 'professional', label: 'Professional' },
-          { value: 'casual', label: 'Casual' },
-          { value: 'formal', label: 'Formal' },
-          { value: 'friendly', label: 'Friendly' },
-          { value: 'custom', label: 'Other (describe)', allowsTextInput: true },
-          { value: 'no_preference', label: 'No preference' },
-        ],
-        default: 'professional',
-        required: false,
-      },
-    ],
-    additionalDetailsField: {
-      question: 'Any additional details?',
-      type: 'textarea',
-      placeholder: 'Add any specific requirements or details',
-      required: false,
-    },
-  };
-}
 
 /**
  * Get optimization history with enhanced filtering
@@ -733,7 +425,9 @@ export const getOptimizationHistory = async (
   const skip = (page - 1) * limit;
 
   const optimizations = await PromptOptimization.find(filter)
-    .select('-questions') // Don't return full questions array for list view
+    // Skip the questions array, and legacy before/after scores that were not
+    // meaningful (older records still store them).
+    .select('-questions -qualityScore -metadata.clarityScore -metadata.specificityScore -metadata.structureScore')
     .sort({ createdAt: -1 })
     .skip(skip)
     .limit(limit)
@@ -747,14 +441,6 @@ export const getOptimizationHistory = async (
     {
       $group: {
         _id: null,
-        avgQualityImprovement: {
-          $avg: {
-            $subtract: [
-              '$qualityScore.after',
-              '$qualityScore.before',
-            ],
-          },
-        },
         totalOptimizations: { $sum: 1 },
         quickCount: {
           $sum: { $cond: [{ $eq: ['$optimizationType', 'quick'] }, 1, 0] },
@@ -773,7 +459,6 @@ export const getOptimizationHistory = async (
     totalPages: Math.ceil(total / limit),
     limit,
     stats: stats[0] || {
-      avgQualityImprovement: 0,
       totalOptimizations: 0,
       quickCount: 0,
       premiumCount: 0,
@@ -791,7 +476,7 @@ export const getOptimizationById = async (
   const optimization = await PromptOptimization.findOne({
     _id: optimizationId,
     user: userId,
-  });
+  }).select('-qualityScore -metadata.clarityScore -metadata.specificityScore -metadata.structureScore');
 
   if (!optimization) {
     throw new AppError('Optimization not found.', 404);
@@ -879,7 +564,8 @@ export const applyOptimization = async (
     mediaType: optimization.mediaType,
     aiModel: optimization.targetModel,
     tags: tags || [],
-    isPublic: isPublic ?? true,
+    // Saved privately unless the user chooses to publish.
+    isPublic: isPublic ?? false,
   };
 
   const prompt = await Prompt.create({

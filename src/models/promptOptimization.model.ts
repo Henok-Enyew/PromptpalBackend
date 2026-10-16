@@ -270,7 +270,23 @@ const promptOptimizationSchemaDefinition: any = {
       after: Number,
     },
     completenessScore: Number,
+    usedAI: Boolean,
+    validationMessage: String,
+    model: String,
+    costUsd: Number,
   },
+  diagnosis: {
+    ambiguities: [String],
+    roleDefinition: String,
+    variables: [String],
+    formattingConstraints: [String],
+    changes: [String],
+  },
+  lintChecks: {
+    before: [{ _id: false, id: String, label: String, passed: Boolean, hint: String }],
+    after: [{ _id: false, id: String, label: String, passed: Boolean, hint: String }],
+  },
+  intentWarnings: [String],
   analysis: {
     completenessScore: Number,
     missingElements: [String],

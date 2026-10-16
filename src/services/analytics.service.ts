@@ -454,12 +454,6 @@ export const getOptimizationStats = async (): Promise<OptimizationStats> => {
         audio: {
           $sum: { $cond: [{ $eq: ['$mediaType', 'audio'] }, 1, 0] },
         },
-        avgBefore: {
-          $avg: '$qualityScore.before',
-        },
-        avgAfter: {
-          $avg: '$qualityScore.after',
-        },
       },
     },
   ]);
@@ -474,8 +468,6 @@ export const getOptimizationStats = async (): Promise<OptimizationStats> => {
     image: 0,
     video: 0,
     audio: 0,
-    avgBefore: 0,
-    avgAfter: 0,
   };
 
   const optimizationStats: OptimizationStats = {
@@ -485,11 +477,6 @@ export const getOptimizationStats = async (): Promise<OptimizationStats> => {
     byType: {
       quick: result.quick,
       premium: result.premium,
-    },
-    quality: {
-      avgBefore: result.avgBefore || 0,
-      avgAfter: result.avgAfter || 0,
-      avgImprovement: (result.avgAfter || 0) - (result.avgBefore || 0),
     },
     byMediaType: {
       text: result.text,

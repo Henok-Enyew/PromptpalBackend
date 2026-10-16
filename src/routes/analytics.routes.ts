@@ -387,23 +387,5 @@ router.get(
   analyticsController.getOptimizationUsageHandler,
 );
 
-/**
- * @swagger
- * /admin/analytics/optimizations/quality:
- *   get:
- *     summary: Get optimization quality metrics
- *     tags: [Analytics]
- *     description: Retrieve quality improvement metrics for optimizations. Requires admin or superadmin role.
- *     security:
- *       - cookieAuth: []
- *     responses:
- *       200:
- *         description: Successfully retrieved quality metrics
- */
-router.get(
-  '/optimizations/quality',
-  analyticsController.getOptimizationQualityHandler,
-);
-
 export default router;
 

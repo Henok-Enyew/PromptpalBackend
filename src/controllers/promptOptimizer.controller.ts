@@ -11,6 +11,29 @@ import {
   FeedbackInput,
 } from '../validation/promptOptimizer.schema.js';
 import AppError from '../utils/appError.util.js';
+import type { IPromptOptimizationDocument } from '../types/promptOptimizer.types.js';
+
+/** Mongoose creates the nested diagnosis even when unset; report null instead. */
+const diagnosisOf = (optimization: IPromptOptimizationDocument) => {
+  const d = optimization.diagnosis;
+  const has = d && (d.changes?.length || d.ambiguities?.length || d.formattingConstraints?.length || d.variables?.length || d.roleDefinition);
+  return has ? d : null;
+};
+
+/** Response shape for a finished quick or premium optimization. */
+const toOptimizationResponse = (optimization: IPromptOptimizationDocument) => ({
+  _id: optimization._id,
+  originalPrompt: optimization.originalPrompt,
+  optimizedPrompt: optimization.optimizedPrompt,
+  targetModel: optimization.targetModel,
+  mediaType: optimization.mediaType,
+  optimizationType: optimization.optimizationType,
+  diagnosis: diagnosisOf(optimization),
+  lintChecks: optimization.lintChecks ?? { before: [], after: [] },
+  intentWarnings: optimization.intentWarnings ?? [],
+  metadata: optimization.metadata,
+  note: optimization.metadata?.validationMessage || undefined,
+});
 
 /**
  * Quick optimization - AI-powered optimization following prompt engineering best practices
@@ -30,27 +53,7 @@ export const quickOptimize = catchAsync(
     res.status(200).json({
       status: 'success',
       data: {
-        optimization: {
-          _id: optimization._id,
-          originalPrompt: optimization.originalPrompt,
-          optimizedPrompt: optimization.optimizedPrompt,
-          targetModel: optimization.targetModel,
-          mediaType: optimization.mediaType,
-          optimizationType: optimization.optimizationType,
-          qualityScore: optimization.qualityScore,
-          metadata: {
-            ...optimization.metadata,
-            validationMessage: (optimization.metadata as any)?.validationMessage,
-            usedAI: (optimization.metadata as any)?.usedAI !== undefined 
-              ? (optimization.metadata as any).usedAI 
-              : optimization.optimizationType === 'quick' && optimization.optimizedPrompt !== optimization.originalPrompt,
-          },
-          analysis: optimization.analysis,
-          improvements: optimization.qualityScore?.improvements || [],
-          note: (optimization.metadata as any)?.validationMessage 
-            ? (optimization.metadata as any).validationMessage 
-            : 'Quick optimization improves grammar, structure, and clarity while preserving your original intent. Use premium optimization for more detailed prompts.',
-        },
+        optimization: toOptimizationResponse(optimization),
       },
     });
   },
@@ -104,17 +107,7 @@ export const buildPrompt = catchAsync(
     res.status(200).json({
       status: 'success',
       data: {
-        optimization: {
-          _id: optimization._id,
-          originalPrompt: optimization.originalPrompt,
-          optimizedPrompt: optimization.optimizedPrompt,
-          targetModel: optimization.targetModel,
-          mediaType: optimization.mediaType,
-          optimizationType: optimization.optimizationType,
-          qualityScore: optimization.qualityScore,
-          metadata: optimization.metadata,
-          improvements: optimization.qualityScore?.improvements || [],
-        },
+        optimization: toOptimizationResponse(optimization),
       },
     });
   },

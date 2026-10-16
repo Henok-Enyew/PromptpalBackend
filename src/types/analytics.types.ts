@@ -96,11 +96,6 @@ export interface OptimizationStats {
     quick: number;
     premium: number;
   };
-  quality: {
-    avgBefore: number;
-    avgAfter: number;
-    avgImprovement: number;
-  };
   byMediaType: {
     text: number;
     image: number;

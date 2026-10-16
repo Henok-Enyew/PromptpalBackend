@@ -114,7 +114,7 @@ export const applyOptimizationSchema = z.object({
     .preprocess(
       (val) => {
         if (val === undefined || val === null) {
-          return true; // Default to true
+          return false; // Saved privately unless the user publishes
         }
         if (typeof val === 'string') {
           const lowerVal = val.toLowerCase().trim();
@@ -123,12 +123,12 @@ export const applyOptimizationSchema = z.object({
         if (typeof val === 'boolean') {
           return val;
         }
-        return true; // Default fallback
+        return false;
       },
       z.boolean()
     )
     .optional()
-    .default(true),
+    .default(false),
   sampleOutput: z
     .string()
     .min(1, 'Sample output is required.')

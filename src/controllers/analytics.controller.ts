@@ -274,17 +274,3 @@ export const getOptimizationUsageHandler = catchAsync(
     });
   },
 );
-
-export const getOptimizationQualityHandler = catchAsync(
-  async (req: Request, res: Response, next: NextFunction) => {
-    const stats = await analyticsService.getOptimizationStats();
-
-    res.status(200).json({
-      status: 'success',
-      data: {
-        quality: stats.quality,
-      },
-    });
-  },
-);
-

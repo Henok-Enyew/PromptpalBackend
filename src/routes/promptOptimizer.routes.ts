@@ -94,22 +94,26 @@ const router = Router();
  *                         optimizationType:
  *                           type: string
  *                           enum: [quick, premium]
- *                         qualityScore:
+ *                         diagnosis:
  *                           type: object
+ *                           nullable: true
+ *                           description: Model's structured diagnosis (quick optimize only)
  *                           properties:
- *                             before:
- *                               type: number
- *                               description: Quality score before optimization (0-100)
- *                             after:
- *                               type: number
- *                               description: Quality score after optimization (0-100)
- *                             improvements:
- *                               type: array
- *                               items:
- *                                 type: string
- *                               example: ["Fixed grammar errors", "Removed filler words", "Improved clarity"]
- *                             intentPreserved:
- *                               type: boolean
+ *                             ambiguities: { type: array, items: { type: string } }
+ *                             roleDefinition: { type: string }
+ *                             variables: { type: array, items: { type: string } }
+ *                             formattingConstraints: { type: array, items: { type: string } }
+ *                             changes: { type: array, items: { type: string } }
+ *                         lintChecks:
+ *                           type: object
+ *                           description: Deterministic pattern checks for the original (before) and rewritten (after) prompt. Not a score.
+ *                           properties:
+ *                             before: { type: array, items: { type: object, properties: { id: { type: string }, label: { type: string }, passed: { type: boolean }, hint: { type: string } } } }
+ *                             after: { type: array, items: { type: object } }
+ *                         intentWarnings:
+ *                           type: array
+ *                           description: Details in the result that may not come from your input (premium only)
+ *                           items: { type: string }
  *                         metadata:
  *                           type: object
  *                           properties:
@@ -366,27 +370,28 @@ router.post(
  *                         optimizationType:
  *                           type: string
  *                           enum: [quick, premium]
- *                         qualityScore:
+ *                         diagnosis:
  *                           type: object
+ *                           nullable: true
+ *                           description: Model's structured diagnosis (quick optimize only)
  *                           properties:
- *                             before:
- *                               type: number
- *                             after:
- *                               type: number
- *                             improvements:
- *                               type: array
- *                               items:
- *                                 type: string
- *                             intentPreserved:
- *                               type: boolean
- *                             intentPreservationScore:
- *                               type: number
+ *                             ambiguities: { type: array, items: { type: string } }
+ *                             roleDefinition: { type: string }
+ *                             variables: { type: array, items: { type: string } }
+ *                             formattingConstraints: { type: array, items: { type: string } }
+ *                             changes: { type: array, items: { type: string } }
+ *                         lintChecks:
+ *                           type: object
+ *                           description: Deterministic pattern checks for the original (before) and rewritten (after) prompt. Not a score.
+ *                           properties:
+ *                             before: { type: array, items: { type: object, properties: { id: { type: string }, label: { type: string }, passed: { type: boolean }, hint: { type: string } } } }
+ *                             after: { type: array, items: { type: object } }
+ *                         intentWarnings:
+ *                           type: array
+ *                           description: Details in the result that may not come from your input (premium only)
+ *                           items: { type: string }
  *                         metadata:
  *                           type: object
- *                         improvements:
- *                           type: array
- *                           items:
- *                             type: string
  *       400:
  *         description: Bad request - validation error or optimization not found
  *       401:
@@ -475,7 +480,7 @@ router.post(
  *                             type: string
  *                           optimizationType:
  *                             type: string
- *                           qualityScore:
+ *                           diagnosis:
  *                             type: object
  *                           createdAt:
  *                             type: string
@@ -494,8 +499,6 @@ router.post(
  *                     stats:
  *                       type: object
  *                       properties:
- *                         avgQualityImprovement:
- *                           type: number
  *                         totalOptimizations:
  *                           type: integer
  *                         quickCount:
@@ -564,7 +567,9 @@ router.get(
  *                           type: object
  *                         additionalDetails:
  *                           type: string
- *                         qualityScore:
+ *                         diagnosis:
+ *                           type: object
+ *                         lintChecks:
  *                           type: object
  *                         metadata:
  *                           type: object
@@ -677,9 +682,9 @@ router.delete(
  *                 example: ["cat", "image", "optimized"]
  *               isPublic:
  *                 type: boolean
- *                 default: true
- *                 description: Whether the prompt should be publicly visible
- *                 example: true
+ *                 default: false
+ *                 description: Whether the prompt should be publicly visible (private unless set)
+ *                 example: false
  *     responses:
  *       201:
  *         description: Prompt created successfully from optimization

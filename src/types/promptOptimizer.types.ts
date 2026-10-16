@@ -32,19 +32,42 @@ export interface OptimizationMetadata {
     before: number;
     after: number;
   };
-  clarityScore: {
+  /** Legacy heuristic scores, no longer written. */
+  clarityScore?: {
     before: number;
     after: number;
   };
-  specificityScore: {
+  /** Legacy heuristic scores, no longer written. */
+  specificityScore?: {
     before: number;
     after: number;
   };
-  structureScore: {
+  /** Legacy heuristic scores, no longer written. */
+  structureScore?: {
     before: number;
     after: number;
   };
-  completenessScore: number;
+  completenessScore?: number;
+  usedAI?: boolean;
+  validationMessage?: string;
+  model?: string;
+  costUsd?: number | null;
+}
+
+export interface LintCheckRecord {
+  id: string;
+  label: string;
+  passed: boolean;
+  hint: string;
+}
+
+/** Structured diagnosis returned by the optimizer model (no scores). */
+export interface OptimizationDiagnosis {
+  ambiguities: string[];
+  roleDefinition: string;
+  variables: string[];
+  formattingConstraints: string[];
+  changes: string[];
 }
 
 export interface PromptAnalysis {
@@ -68,7 +91,11 @@ export interface IPromptOptimizationDocument extends Document {
   additionalDetails?: string;
   userAnswers?: Record<string, QuestionAnswer>;
   
-  // Quality metrics
+  // Diagnosis and lint checks (new records). `qualityScore` is legacy and
+  // no longer written: its before/after numbers were not meaningful.
+  diagnosis?: OptimizationDiagnosis;
+  lintChecks?: { before: LintCheckRecord[]; after: LintCheckRecord[] };
+  intentWarnings?: string[];
   qualityScore?: QualityScore;
   metadata?: OptimizationMetadata;
   analysis?: PromptAnalysis;
