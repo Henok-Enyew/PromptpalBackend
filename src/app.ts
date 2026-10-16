@@ -22,6 +22,8 @@ import blogRoutes from './routes/blog.routes.js';
 import blogAdminRoutes from './routes/blogAdmin.routes.js';
 import publicRoutes from './routes/public.routes.js';
 import evaluationRoutes from './routes/evaluation.routes.js';
+import billingRoutes from './routes/billing.routes.js';
+import { webhook as billingWebhook } from './controllers/billing.controller.js';
 
 const app: Express = express();
 
@@ -70,6 +72,10 @@ app.use(cookieParser());
 app.use('/api', globalLimiter);
 app.use('/api', originCheck);
 
+// Lemon Squeezy webhook: needs the raw body for its HMAC signature, so it is
+// registered before the JSON parser.
+app.post('/api/v1/billing/webhook', express.raw({ type: 'application/json', limit: '256kb' }), billingWebhook);
+
 app.use(express.json({ limit: '10kb' }));
 app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 
@@ -85,6 +91,7 @@ app.use('/api/v1/prompt-optimizer', promptOptimizerRoutes);
 app.use('/api/v1/blogs', blogRoutes);
 app.use('/api/v1/public', publicRoutes);
 app.use('/api/v1/evaluations', evaluationRoutes);
+app.use('/api/v1/billing', billingRoutes);
 
 app.get('/', (req: Request, res: Response) => {
   res.status(200).json({

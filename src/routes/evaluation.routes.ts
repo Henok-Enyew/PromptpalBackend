@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { protect } from '../middleware/auth.middleware.js';
 import { aiLimiter } from '../middleware/rateLimit.middleware.js';
+import { requireQuota } from '../middleware/quota.middleware.js';
 import { validate } from '../middleware/validate.middleware.js';
 import * as evaluationController from '../controllers/evaluation.controller.js';
 import {
@@ -71,7 +72,7 @@ router.get('/options', evaluationController.getOptions);
  *       200:
  *         description: Runs with scores (outputs omitted)
  */
-router.post('/', aiLimiter, validate(runEvaluationSchema), evaluationController.runEvaluation);
+router.post('/', aiLimiter, validate(runEvaluationSchema), requireQuota('benchmarkRuns'), evaluationController.runEvaluation);
 router.get('/', validate(listEvaluationsQuerySchema, 'query'), evaluationController.listRuns);
 
 /**

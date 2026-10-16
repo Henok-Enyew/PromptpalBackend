@@ -155,6 +155,18 @@ const config: AppConfig = {
 
   aiProvider: getEnvVar('AI_PROVIDER', false, 'auto')!,
 
+  // Billing (Lemon Squeezy, merchant of record). All optional: billing
+  // routes answer 503 until the key, store, webhook secret and a variant exist.
+  // Use test-mode keys and variants outside production.
+  lemonSqueezy: {
+    apiKey: getEnvVar('LEMONSQUEEZY_API_KEY', false),
+    storeId: getEnvVar('LEMONSQUEEZY_STORE_ID', false),
+    webhookSecret: getEnvVar('LEMONSQUEEZY_WEBHOOK_SECRET', false),
+    proMonthlyVariantId: getEnvVar('LEMONSQUEEZY_PRO_MONTHLY_VARIANT_ID', false),
+    proYearlyVariantId: getEnvVar('LEMONSQUEEZY_PRO_YEARLY_VARIANT_ID', false),
+    apiUrl: getEnvVar('LEMONSQUEEZY_API_URL', false, 'https://api.lemonsqueezy.com/v1')!,
+  },
+
   trustProxyHops: getEnvVarAsInt('TRUST_PROXY_HOPS', false, 1)!,
 
   // Requests per window. Windows: global 15 min, auth 15 min, AI 1 hour.

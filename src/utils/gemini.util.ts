@@ -56,6 +56,11 @@ export function isGeminiAvailable(): boolean {
   return resolveOptimizerModel() !== null;
 }
 
+/** "provider:model" the optimizer would use right now, or null. */
+export function getOptimizerModelId(): string | null {
+  return resolveOptimizerModel()?.id ?? null;
+}
+
 export function getActiveAIProvider(): AIProvider | null {
   return resolveOptimizerModel()?.provider ?? null;
 }

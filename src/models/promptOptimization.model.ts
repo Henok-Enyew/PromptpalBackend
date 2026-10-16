@@ -274,6 +274,7 @@ const promptOptimizationSchemaDefinition: any = {
     validationMessage: String,
     model: String,
     costUsd: Number,
+    cached: Boolean,
   },
   diagnosis: {
     ambiguities: [String],

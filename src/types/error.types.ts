@@ -6,4 +6,5 @@ export interface ExtendedError extends Error {
   path?: string;
   value?: any;
   errmsg?: string;
+  details?: Record<string, unknown>;
 }

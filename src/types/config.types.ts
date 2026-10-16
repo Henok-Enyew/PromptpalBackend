@@ -64,6 +64,15 @@ interface GroqConfig {
   model?: string;
 }
 
+interface LemonSqueezyConfig {
+  apiKey?: string;
+  storeId?: string;
+  webhookSecret?: string;
+  proMonthlyVariantId?: string;
+  proYearlyVariantId?: string;
+  apiUrl: string;
+}
+
 interface RateLimitConfig {
   globalMax: number;
   authMax: number;
@@ -91,6 +100,7 @@ export interface AppConfig {
   groq: GroqConfig;
   anthropic: AnthropicConfig;
   judgeModel: string;
+  lemonSqueezy: LemonSqueezyConfig;
   trustProxyHops: number;
   rateLimit: RateLimitConfig;
   cookieSameSite: 'lax' | 'strict' | 'none';

@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { protect } from '../middleware/auth.middleware.js';
 import { aiLimiter } from '../middleware/rateLimit.middleware.js';
+import { requireQuota } from '../middleware/quota.middleware.js';
 import { validate } from '../middleware/validate.middleware.js';
 import { upload } from '../utils/fileUpload.util.js';
 import * as promptOptimizerController from '../controllers/promptOptimizer.controller.js';
@@ -149,6 +150,7 @@ router.post(
   protect,
   aiLimiter,
   validate(quickOptimizeSchema, 'body'),
+  requireQuota('quickOptimizations'),
   promptOptimizerController.quickOptimize,
 );
 
@@ -272,6 +274,8 @@ router.post(
   protect,
   aiLimiter,
   validate(analyzePromptSchema, 'body'),
+  // A refinery session starts at analysis; the build step is part of it.
+  requireQuota('refinerySessions'),
   promptOptimizerController.analyzePrompt,
 );
 

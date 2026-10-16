@@ -1,4 +1,5 @@
 import { Document, Types } from 'mongoose';
+import type { Plan, UsageKind } from '../config/plans.js';
 
 export type UserRole = 'user' | 'admin' | 'superadmin';
 export type UserStatus = 'pending' | 'approved' | 'blocked';
@@ -30,7 +31,30 @@ export interface IUser {
   
   // Blog bookmarks
   bookmarkedBlogs?: Types.ObjectId[];
+
+  // Billing (Lemon Squeezy). `plan` is kept in sync by the webhook.
+  plan: Plan;
+  subscription?: UserSubscription;
+  usage?: UserUsage;
 }
+
+export type SubscriptionStatus =
+  | 'on_trial' | 'active' | 'paused' | 'past_due' | 'unpaid' | 'cancelled' | 'expired';
+
+export interface UserSubscription {
+  lsCustomerId?: string;
+  lsSubscriptionId?: string;
+  status?: SubscriptionStatus;
+  variantId?: string;
+  interval?: 'monthly' | 'yearly';
+  renewsAt?: Date | null;
+  endsAt?: Date | null;
+  /** `updated_at` of the last applied webhook; older events are ignored. */
+  lsUpdatedAt?: Date;
+  lastPaymentAt?: Date;
+}
+
+export type UserUsage = { periodStart?: Date } & Partial<Record<UsageKind, number>>;
 
 export interface PublicUserProfile {
   id: string;
@@ -44,6 +68,7 @@ export interface PublicUserProfile {
   profileImage?: string;
   isEmailVerified: boolean;
   createdAt: Date;
+  plan: Plan;
 }
 export interface IUserDocument extends IUser, Document {
   comparePassword(candidatePassword: string): Promise<boolean>;

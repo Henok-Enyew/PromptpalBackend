@@ -10,6 +10,7 @@ import Prompt from '../models/prompt.model.js';
 import Comment from '../models/comment.model.js';
 import PromptOptimization from '../models/promptOptimization.model.js';
 import { DeleteAccountInput } from '../validation/user.schema.js';
+import EvaluationRun from '../models/evaluationRun.model.js';
 
 const DEFAULT_PROFILE_IMAGE =
   'https://res.cloudinary.com/dxhkryxzk/image/upload/v1755980278/avatar2_bkwawy.png';
@@ -155,8 +156,17 @@ export const getUserByIdAdmin = async (userId: string) => {
  * history, and anonymizes the account so the email can be reused.
  */
 export const deleteAccount = async (userId: string, input: DeleteAccountInput) => {
-  const user = await User.findById(userId).select('+password');
+  const user = await User.findById(userId).select('+password +subscription');
   if (!user) throw new AppError('User not found', 404);
+
+  // Deleting the account wouldn't stop Lemon Squeezy from charging the card.
+  const liveStatuses = ['active', 'on_trial', 'past_due', 'paused', 'unpaid'];
+  if (user.subscription?.status && liveStatuses.includes(user.subscription.status)) {
+    throw new AppError(
+      'Cancel your Pro subscription in the billing portal before deleting your account.',
+      409,
+    );
+  }
 
   if (user.password) {
     if (!input.password || !(await user.comparePassword(input.password))) {
@@ -175,6 +185,7 @@ export const deleteAccount = async (userId: string, input: DeleteAccountInput) =
       { $set: { isDeleted: true, deletedAt: now } },
     ),
     PromptOptimization.deleteMany({ user: user._id }),
+    EvaluationRun.deleteMany({ user: user._id }),
   ]);
 
   await deleteProfileImage(user.profileImage ?? '', userId);

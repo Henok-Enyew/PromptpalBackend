@@ -7,6 +7,7 @@ import { ExtendedError } from '../types/error.types.js';
 const sendErrorDev = (err: ExtendedError, res: Response) => {
   res.status(err.statusCode || 500).json({
     status: err.status || 'error',
+    ...(err.details ?? {}),
     error: err,
     message: err.message,
     stack: err.stack,
@@ -17,6 +18,7 @@ const sendErrorProd = (err: ExtendedError, res: Response) => {
   if (err.isOperational) {
     res.status(err.statusCode || 500).json({
       status: err.status || 'error',
+      ...(err.details ?? {}),
       message: err.message,
     });
   } else {

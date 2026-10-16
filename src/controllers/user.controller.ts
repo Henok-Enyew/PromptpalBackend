@@ -29,6 +29,10 @@ export const updateProfileHandler = catchAsync(
       'passwordResetToken',
       'passwordResetExpires',
       'profileImage', // Handle via file upload, not body
+      // Billing state is written only by the Lemon Squeezy webhook.
+      'plan',
+      'subscription',
+      'usage',
     ];
     forbidden.forEach((f) => {
       if ((req.body as any)[f] !== undefined) delete (req.body as any)[f];

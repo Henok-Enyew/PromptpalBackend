@@ -21,5 +21,6 @@ export const sanitizeUserForResponse = (
     profileImage: user.profileImage,
     isEmailVerified: user.isEmailVerified,
     createdAt: user.createdAt,
+    plan: user.plan ?? 'free',
   };
 };

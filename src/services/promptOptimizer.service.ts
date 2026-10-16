@@ -15,7 +15,10 @@ import {
   buildOptimizedPrompt,
   isGeminiAvailable,
   quickOptimizeWithAI,
+  getOptimizerModelId,
 } from '../utils/gemini.util.js';
+import { withLLMCache } from './llmCache.service.js';
+import { assertPrivatePromptAllowed } from './quota.service.js';
 import { validateIntentPreservation } from '../utils/intentPreservation.util.js';
 import { lintPrompt } from '../utils/promptLint.util.js';
 import { LLMError } from '../services/llm/types.js';
@@ -61,8 +64,16 @@ export const quickOptimize = async (
   }
 
   let result: Awaited<ReturnType<typeof quickOptimizeWithAI>>;
+  let cached = false;
   try {
-    result = await quickOptimizeWithAI(promptText, targetModel as string, mediaType);
+    // Identical requests within the cache window reuse the earlier rewrite.
+    const out = await withLLMCache(
+      'quick-optimize',
+      { v: 1, model: getOptimizerModelId(), targetModel, mediaType, prompt: promptText },
+      () => quickOptimizeWithAI(promptText, targetModel as string, mediaType),
+    );
+    result = out.value;
+    cached = out.hit;
   } catch (error: any) {
     logger.error({ userId, errorMessage: error.message, code: error.code }, 'AI optimization failed');
     if (error instanceof LLMError && error.code === 'rate_limited') {
@@ -106,7 +117,8 @@ export const quickOptimize = async (
       usedAI: true,
       validationMessage,
       model: result.model,
-      costUsd: result.costUsd,
+      costUsd: cached ? 0 : result.costUsd,
+      cached,
     },
   });
 };
@@ -567,6 +579,8 @@ export const applyOptimization = async (
     // Saved privately unless the user chooses to publish.
     isPublic: isPublic ?? false,
   };
+
+  if (!promptData.isPublic) await assertPrivatePromptAllowed(userId);
 
   const prompt = await Prompt.create({
     ...promptData,

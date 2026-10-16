@@ -52,6 +52,8 @@ export interface OptimizationMetadata {
   validationMessage?: string;
   model?: string;
   costUsd?: number | null;
+  /** Served from the LLM cache (no model call, not counted against quota). */
+  cached?: boolean;
 }
 
 export interface LintCheckRecord {

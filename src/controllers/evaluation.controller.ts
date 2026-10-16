@@ -44,9 +44,12 @@ export const runEvaluation = catchAsync(async (req: Request, res: Response) => {
   }, 15_000);
 
   try {
-    await evaluationService.runEvaluation(req.user!, input, prepared, send, controller.signal);
+    const run = await evaluationService.runEvaluation(req.user!, input, prepared, send, controller.signal);
+    // Every model failed: nothing useful was produced, so don't count the run.
+    if (run.status === 'failed') await res.locals.refundQuota?.();
   } catch (error) {
     logger.error(error, '[Evaluation]: run failed');
+    await res.locals.refundQuota?.().catch(() => {});
     send({ event: 'run.error', data: { message: 'The benchmark failed unexpectedly. Please try again.' } });
   } finally {
     clearInterval(ping);

@@ -49,6 +49,8 @@ export const quickOptimize = catchAsync(
       req.user.id,
       input,
     );
+    // Cached answers cost nothing, so they don't count against the quota.
+    if (optimization.metadata?.cached) await res.locals.refundQuota?.();
 
     res.status(200).json({
       status: 'success',

@@ -96,6 +96,14 @@ GEMINI_MODEL=gemini-2.5-flash
 OPTIMIZATION_TEMPERATURE=0.7
 OPTIMIZATION_MAX_TOKENS=4000
 
+# Billing (Lemon Squeezy). Optional: billing routes return 503 until set.
+# Use test-mode values outside production. Plan limits live in src/config/plans.ts.
+LEMONSQUEEZY_API_KEY=<api-key>
+LEMONSQUEEZY_STORE_ID=<store-id>
+LEMONSQUEEZY_WEBHOOK_SECRET=<signing-secret>   # webhook URL: <api>/api/v1/billing/webhook
+LEMONSQUEEZY_PRO_MONTHLY_VARIANT_ID=<variant-id>
+LEMONSQUEEZY_PRO_YEARLY_VARIANT_ID=<variant-id>
+
 SUPER_ADMIN_EMAIL=<admin-email>
 SUPER_ADMIN_PASSWORD=<admin-password>
 SUPER_ADMIN_PHONE=<admin-phone>

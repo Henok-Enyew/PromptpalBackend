@@ -186,6 +186,41 @@ const userSchema = new Schema<IUserDocument>(
         ref: 'BlogPost',
       },
     ],
+    // Billing. `plan` is written only by the Lemon Squeezy webhook handler.
+    plan: {
+      type: String,
+      enum: ['free', 'pro'],
+      default: 'free',
+    },
+    subscription: {
+      type: {
+        _id: false,
+        lsCustomerId: String,
+        lsSubscriptionId: String,
+        status: {
+          type: String,
+          enum: ['on_trial', 'active', 'paused', 'past_due', 'unpaid', 'cancelled', 'expired'],
+        },
+        variantId: String,
+        interval: { type: String, enum: ['monthly', 'yearly'] },
+        renewsAt: Date,
+        endsAt: Date,
+        lsUpdatedAt: Date,
+        lastPaymentAt: Date,
+      },
+      select: false,
+    },
+    // Monthly usage counters; reset lazily by the quota middleware.
+    usage: {
+      type: {
+        _id: false,
+        periodStart: Date,
+        quickOptimizations: { type: Number, default: 0 },
+        refinerySessions: { type: Number, default: 0 },
+        benchmarkRuns: { type: Number, default: 0 },
+      },
+      select: false,
+    },
   },
   {
     timestamps: true,
@@ -202,6 +237,7 @@ userSchema.index({ googleId: 1 }, { unique: true, sparse: true });
 userSchema.index({ firstName: 1, lastName: 1 });
 
 userSchema.index({ role: 1, status: 1 });
+userSchema.index({ 'subscription.lsSubscriptionId': 1 }, { sparse: true });
 
 userSchema.index({
   firstName: 'text',

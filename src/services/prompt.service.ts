@@ -8,6 +8,7 @@ import Comment from '../models/comment.model.js';
 import { literalRegex } from '../utils/regex.util.js';
 import { extractTemplateVariables } from '../utils/template.util.js';
 import { MAX_PROMPT_VERSIONS, MAX_TEST_CASES } from '../models/prompt.model.js';
+import { assertPrivatePromptAllowed } from './quota.service.js';
 
 // Large owner-only arrays that list/detail queries never need to load.
 const OWNER_ONLY_EXCLUDED = { versions: 0, testCases: 0 } as const;
@@ -99,6 +100,8 @@ export const createPrompt = async (
       promptData.sampleOutput = imageUrl;
     }
   }
+
+  if (promptData.isPublic === false) await assertPrivatePromptAllowed(userId);
 
   const prompt = await Prompt.create(promptData);
   
@@ -304,6 +307,11 @@ export const updatePrompt = async (
 
   const textChanged =
     typeof promptData.promptText === 'string' && promptData.promptText !== prompt.promptText;
+
+  // Making a public prompt private counts against the owner's private cap.
+  if (isOwner && prompt.isPublic && promptData.isPublic === false) {
+    await assertPrivatePromptAllowed(userId, promptId);
+  }
 
   Object.keys(promptData).forEach((key) => {
     if (promptData[key] !== undefined) {
